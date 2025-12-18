@@ -47,20 +47,20 @@ class ExcelUploadView(APIView):
            - 새 데이터 bulk_create
         5. 업로드 이력 기록
         """
-        file = request.FILES.get('file')
+        file = request.FILES.get("file")
 
         if not file:
             return Response(
-                {'error': '파일이 제공되지 않았습니다.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "파일이 제공되지 않았습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # 파일 확장자 검사
         filename = file.name.lower()
-        if not (filename.endswith('.xlsx') or filename.endswith('.xls')):
+        if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
             return Response(
-                {'error': '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -79,8 +79,8 @@ class ExcelUploadView(APIView):
 
             if not performance_objects:
                 return Response(
-                    {'error': '처리할 유효한 데이터가 없습니다.', 'details': errors},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "처리할 유효한 데이터가 없습니다.", "details": errors},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Atomic Transaction으로 데이터 저장
@@ -94,8 +94,7 @@ class ExcelUploadView(APIView):
 
                 # 새 데이터 일괄 삽입
                 created_objects = PerformanceData.objects.bulk_create(
-                    performance_objects,
-                    batch_size=1000
+                    performance_objects, batch_size=1000
                 )
 
                 # 업로드 이력 기록
@@ -103,40 +102,43 @@ class ExcelUploadView(APIView):
                     reference_date=str(reference_dates[0]),
                     filename=file.name,
                     row_count=len(created_objects),
-                    status='success',
-                    uploaded_by=request.user if request.user.is_authenticated else None
+                    status="success",
+                    uploaded_by=request.user if request.user.is_authenticated else None,
                 )
 
-            return Response({
-                'message': '데이터 업로드가 완료되었습니다.',
-                'reference_dates': [str(d) for d in reference_dates],
-                'created_count': len(created_objects),
-                'warnings': errors if errors else None
-            }, status=status.HTTP_201_CREATED)
-
-        except ValueError as e:
             return Response(
-                {'error': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
+                {
+                    "message": "데이터 업로드가 완료되었습니다.",
+                    "reference_dates": [str(d) for d in reference_dates],
+                    "created_count": len(created_objects),
+                    "warnings": errors if errors else None,
+                },
+                status=status.HTTP_201_CREATED,
             )
+
         except pd.errors.EmptyDataError:
             return Response(
-                {'error': '엑셀 파일이 비어있습니다.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "엑셀 파일이 비어있습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             # 에러 발생 시 업로드 이력 기록
             UploadLog.objects.create(
-                reference_date='',
-                filename=file.name if file else 'unknown',
+                reference_date="",
+                filename=file.name if file else "unknown",
                 row_count=0,
-                status='failed',
+                status="failed",
                 error_message=str(e),
-                uploaded_by=request.user if request.user.is_authenticated else None
+                uploaded_by=request.user if request.user.is_authenticated else None,
             )
             return Response(
-                {'error': f'파일 처리 중 오류가 발생했습니다: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": f"파일 처리 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -157,12 +159,12 @@ class PerformanceDataViewSet(viewsets.ModelViewSet):
         queryset = PerformanceData.objects.all()
 
         # 기준 년월 필터링
-        reference_date = self.request.query_params.get('reference_date')
+        reference_date = self.request.query_params.get("reference_date")
         if reference_date:
             queryset = queryset.filter(reference_date=reference_date)
 
         # 부서 필터링
-        department = self.request.query_params.get('department')
+        department = self.request.query_params.get("department")
         if department:
             queryset = queryset.filter(department__icontains=department)
 
@@ -190,7 +192,7 @@ class DashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        reference_date = request.query_params.get('reference_date')
+        reference_date = request.query_params.get("reference_date")
 
         queryset = PerformanceData.objects.all()
         if reference_date:
@@ -198,48 +200,47 @@ class DashboardSummaryView(APIView):
 
         # 집계 데이터
         summary = queryset.aggregate(
-            total_revenue=Sum('revenue'),
-            total_budget=Sum('budget'),
-            total_expenditure=Sum('expenditure'),
-            total_papers=Sum('paper_count'),
-            total_patents=Sum('patent_count'),
-            total_projects=Sum('project_count'),
-            department_count=Count('department', distinct=True),
-            avg_revenue=Avg('revenue'),
+            total_revenue=Sum("revenue"),
+            total_budget=Sum("budget"),
+            total_expenditure=Sum("expenditure"),
+            total_papers=Sum("paper_count"),
+            total_patents=Sum("patent_count"),
+            total_projects=Sum("project_count"),
+            department_count=Count("department", distinct=True),
+            avg_revenue=Avg("revenue"),
         )
 
         # 월별 추이 데이터
         monthly_trend = (
-            PerformanceData.objects
-            .values('reference_date')
+            PerformanceData.objects.values("reference_date")
             .annotate(
-                revenue=Sum('revenue'),
-                budget=Sum('budget'),
-                expenditure=Sum('expenditure'),
-                papers=Sum('paper_count'),
+                revenue=Sum("revenue"),
+                budget=Sum("budget"),
+                expenditure=Sum("expenditure"),
+                papers=Sum("paper_count"),
             )
-            .order_by('reference_date')
+            .order_by("reference_date")
         )
 
         # 부서별 실적 (상위 10개)
         department_ranking = (
-            queryset
-            .values('department')
+            queryset.values("department")
             .annotate(
-                total_revenue=Sum('revenue'),
-                total_papers=Sum('paper_count'),
+                total_revenue=Sum("revenue"),
+                total_papers=Sum("paper_count"),
             )
-            .order_by('-total_revenue')[:10]
+            .order_by("-total_revenue")[:10]
         )
 
-        return Response({
-            'summary': summary,
-            'monthly_trend': list(monthly_trend),
-            'department_ranking': list(department_ranking),
-            'reference_dates': list(
-                PerformanceData.objects
-                .values_list('reference_date', flat=True)
-                .distinct()
-                .order_by('-reference_date')
-            ),
-        })
+        return Response(
+            {
+                "summary": summary,
+                "monthly_trend": list(monthly_trend),
+                "department_ranking": list(department_ranking),
+                "reference_dates": list(
+                    PerformanceData.objects.values_list("reference_date", flat=True)
+                    .distinct()
+                    .order_by("-reference_date")
+                ),
+            }
+        )
