@@ -8,9 +8,13 @@ Django settings for data visualization dashboard project.
 """
 
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
+
+# Testing mode detection
+TESTING = 'test' in sys.argv or 'pytest' in sys.modules
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -210,3 +214,28 @@ LOGGING = {
         },
     },
 }
+
+
+# Session Cookie Security Settings
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 604800  # 7 days
+
+
+# Testing-specific settings
+if TESTING:
+    # Use faster password hasher for tests
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
+    # Ensure consistent timezone in CI/CD
+    TIME_ZONE = 'Asia/Seoul'
+    USE_TZ = True
+    # Use in-memory SQLite for faster tests
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }

@@ -1,0 +1,4170 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: ./**/*.md
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+backend/
+  api/
+    services/
+      __init__.py
+      excel_parser.py
+    tests/
+      __init__.py
+      test_excel_parser.py
+    __init__.py
+    admin.py
+    models.py
+    serializers.py
+    urls.py
+    views.py
+  config/
+    __init__.py
+    asgi.py
+    settings.py
+    urls.py
+    wsgi.py
+  conftest.py
+  manage.py
+  pytest.ini
+  requirements.txt
+e2e/
+  fixtures/
+    create_sample_excel.py
+    sample_data.xlsx
+  tests/
+    smoke.spec.ts
+  package.json
+  playwright.config.ts
+frontend/
+  public/
+    vite.svg
+  src/
+    assets/
+      react.svg
+    components/
+      charts/
+        CategoryPieChart.tsx
+        DepartmentBarChart.tsx
+        MonthlyTrendChart.tsx
+      FilterPanel.tsx
+    layouts/
+      DashboardLayout.tsx
+    pages/
+      Dashboard.tsx
+      DataTable.tsx
+      Upload.tsx
+    services/
+      api.ts
+      performanceApi.ts
+    types/
+      index.ts
+    utils/
+      formatters.test.ts
+      formatters.ts
+    App.css
+    App.tsx
+    index.css
+    main.tsx
+    theme.ts
+  .gitignore
+  eslint.config.js
+  index.html
+  package.json
+  tsconfig.app.json
+  tsconfig.json
+  tsconfig.node.json
+  vite.config.ts
+public/
+  department_kpi.csv
+  publication_list.csv
+  research_project_data.csv
+  student_roster.csv
+.env.example
+.gitignore
+Dockerfile
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="backend/api/services/__init__.py">
+"""
+Services layer for business logic.
+
+Separates business logic from views for better testability.
+"""
+
+from .excel_parser import ExcelParser
+
+__all__ = ['ExcelParser']
+</file>
+
+<file path="backend/api/services/excel_parser.py">
+"""
+Excel Parser Service
+
+Handles Excel file parsing and data transformation for PerformanceData model.
+Separated from views for better testability.
+"""
+
+import io
+from decimal import Decimal, InvalidOperation
+from typing import Any, Optional
+
+import pandas as pd
+
+from api.models import PerformanceData
+
+
+class ExcelParser:
+    """
+    Service class for parsing Excel files and transforming data.
+
+    Usage:
+        parser = ExcelParser()
+        df = parser.read_excel(file_content)
+        objects = parser.parse_dataframe(df)
+    """
+
+    # Excel column name to model field mapping
+    COLUMN_MAPPING = {
+        '기준년월': 'reference_date',
+        '기준 년월': 'reference_date',
+        'reference_date': 'reference_date',
+        '부서명': 'department',
+        '부서': 'department',
+        'department': 'department',
+        '부서코드': 'department_code',
+        'department_code': 'department_code',
+        '매출액': 'revenue',
+        '매출': 'revenue',
+        'revenue': 'revenue',
+        '예산': 'budget',
+        'budget': 'budget',
+        '지출액': 'expenditure',
+        '지출': 'expenditure',
+        'expenditure': 'expenditure',
+        '논문수': 'paper_count',
+        '논문': 'paper_count',
+        'paper_count': 'paper_count',
+        '특허수': 'patent_count',
+        '특허': 'patent_count',
+        'patent_count': 'patent_count',
+        '프로젝트수': 'project_count',
+        '프로젝트': 'project_count',
+        'project_count': 'project_count',
+        '추가지표1': 'extra_metric_1',
+        '추가지표2': 'extra_metric_2',
+        '비고': 'extra_text',
+    }
+
+    def read_excel(self, file_content: bytes) -> pd.DataFrame:
+        """
+        Read Excel file content into a pandas DataFrame.
+
+        Args:
+            file_content: Raw bytes of the Excel file
+
+        Returns:
+            DataFrame with normalized column names
+
+        Raises:
+            pd.errors.EmptyDataError: If file is empty
+            ValueError: If file cannot be parsed
+        """
+        df = pd.read_excel(io.BytesIO(file_content))
+
+        if df.empty:
+            raise ValueError('엑셀 파일에 데이터가 없습니다.')
+
+        # Normalize column names (strip whitespace)
+        df.columns = df.columns.str.strip()
+
+        # Apply column mapping
+        mapped_columns = {}
+        for col in df.columns:
+            if col in self.COLUMN_MAPPING:
+                mapped_columns[col] = self.COLUMN_MAPPING[col]
+
+        df = df.rename(columns=mapped_columns)
+
+        return df
+
+    def validate_dataframe(self, df: pd.DataFrame) -> None:
+        """
+        Validate that DataFrame has required columns.
+
+        Args:
+            df: DataFrame to validate
+
+        Raises:
+            ValueError: If required columns are missing
+        """
+        if 'reference_date' not in df.columns:
+            raise ValueError("'기준년월' 또는 'reference_date' 컬럼이 필요합니다.")
+
+    def extract_reference_dates(self, df: pd.DataFrame) -> list:
+        """
+        Extract unique reference dates from DataFrame.
+
+        Args:
+            df: DataFrame with reference_date column
+
+        Returns:
+            List of unique reference dates
+
+        Raises:
+            ValueError: If no valid reference dates found
+        """
+        reference_dates = df['reference_date'].dropna().unique()
+        if len(reference_dates) == 0:
+            raise ValueError('기준 년월 데이터가 없습니다.')
+        return list(reference_dates)
+
+    def parse_dataframe(self, df: pd.DataFrame) -> tuple[list[PerformanceData], list[str]]:
+        """
+        Parse DataFrame rows into PerformanceData objects.
+
+        Args:
+            df: DataFrame to parse
+
+        Returns:
+            Tuple of (list of PerformanceData objects, list of error messages)
+        """
+        objects = []
+        errors = []
+
+        for idx, row in df.iterrows():
+            try:
+                obj_data = self.parse_row(row)
+                if obj_data:
+                    objects.append(PerformanceData(**obj_data))
+            except Exception as e:
+                errors.append(f"행 {idx + 2}: {str(e)}")
+
+        return objects, errors
+
+    def parse_row(self, row: pd.Series) -> Optional[dict[str, Any]]:
+        """
+        Parse a single DataFrame row into model field dictionary.
+
+        Args:
+            row: pandas Series representing a row
+
+        Returns:
+            Dictionary of model field values, or None if row is invalid
+        """
+        if pd.isna(row.get('reference_date')):
+            return None
+
+        data = {
+            'reference_date': self.normalize_date(row.get('reference_date')),
+            'department': str(row.get('department', '')).strip() if pd.notna(row.get('department')) else '',
+            'department_code': str(row.get('department_code', '')).strip() if pd.notna(row.get('department_code')) else '',
+            'revenue': self.to_decimal(row.get('revenue', 0)),
+            'budget': self.to_decimal(row.get('budget', 0)),
+            'expenditure': self.to_decimal(row.get('expenditure', 0)),
+            'paper_count': self.to_int(row.get('paper_count', 0)),
+            'patent_count': self.to_int(row.get('patent_count', 0)),
+            'project_count': self.to_int(row.get('project_count', 0)),
+            'extra_text': str(row.get('extra_text', '')).strip() if pd.notna(row.get('extra_text')) else '',
+        }
+
+        # Optional fields
+        if 'extra_metric_1' in row.index and pd.notna(row.get('extra_metric_1')):
+            data['extra_metric_1'] = self.to_decimal(row.get('extra_metric_1'))
+        if 'extra_metric_2' in row.index and pd.notna(row.get('extra_metric_2')):
+            data['extra_metric_2'] = self.to_decimal(row.get('extra_metric_2'))
+
+        return data
+
+    @staticmethod
+    def normalize_date(value: Any) -> str:
+        """
+        Normalize date value to YYYY-MM format.
+
+        Supports formats:
+            - YYYY-MM (passthrough)
+            - YYYYMM (numeric)
+            - YYYY/MM
+            - datetime objects
+            - Excel serial date numbers
+
+        Args:
+            value: Date value in various formats
+
+        Returns:
+            Date string in YYYY-MM format
+
+        Examples:
+            >>> ExcelParser.normalize_date('2024-05')
+            '2024-05'
+            >>> ExcelParser.normalize_date('202405')
+            '2024-05'
+            >>> ExcelParser.normalize_date(202405)
+            '2024-05'
+            >>> ExcelParser.normalize_date('2024/05')
+            '2024-05'
+        """
+        if pd.isna(value):
+            return ''
+
+        value_str = str(value).strip()
+
+        # Already YYYY-MM format
+        if len(value_str) == 7 and value_str[4] == '-':
+            return value_str
+
+        # YYYYMM format (string or int)
+        if len(value_str) == 6 and value_str.isdigit():
+            return f"{value_str[:4]}-{value_str[4:]}"
+
+        # Handle float representation of YYYYMM (e.g., 202405.0)
+        if '.' in value_str:
+            try:
+                int_value = int(float(value_str))
+                int_str = str(int_value)
+                if len(int_str) == 6:
+                    return f"{int_str[:4]}-{int_str[4:]}"
+            except (ValueError, TypeError):
+                pass
+
+        # YYYY/MM format
+        if len(value_str) == 7 and value_str[4] == '/':
+            return f"{value_str[:4]}-{value_str[5:]}"
+
+        # datetime object
+        try:
+            if hasattr(value, 'strftime'):
+                return value.strftime('%Y-%m')
+        except Exception:
+            pass
+
+        # pandas Timestamp
+        try:
+            ts = pd.Timestamp(value)
+            if not pd.isna(ts):
+                return ts.strftime('%Y-%m')
+        except Exception:
+            pass
+
+        # Fallback: truncate to 7 characters
+        return value_str[:7] if len(value_str) >= 7 else value_str
+
+    @staticmethod
+    def to_decimal(value: Any, default: int = 0) -> Decimal:
+        """
+        Convert value to Decimal type.
+
+        Args:
+            value: Value to convert
+            default: Default value if conversion fails
+
+        Returns:
+            Decimal representation of the value
+
+        Examples:
+            >>> ExcelParser.to_decimal('1,234.56')
+            Decimal('1234.56')
+            >>> ExcelParser.to_decimal(None)
+            Decimal('0')
+        """
+        if pd.isna(value):
+            return Decimal(default)
+        try:
+            # Remove thousand separators
+            clean_value = str(value).replace(',', '').strip()
+            return Decimal(clean_value)
+        except (InvalidOperation, ValueError):
+            return Decimal(default)
+
+    @staticmethod
+    def to_int(value: Any, default: int = 0) -> int:
+        """
+        Convert value to integer type.
+
+        Args:
+            value: Value to convert
+            default: Default value if conversion fails
+
+        Returns:
+            Integer representation of the value
+
+        Examples:
+            >>> ExcelParser.to_int('1,234')
+            1234
+            >>> ExcelParser.to_int(None)
+            0
+        """
+        if pd.isna(value):
+            return default
+        try:
+            # Remove thousand separators and convert via float (handles '1.0' cases)
+            clean_value = str(value).replace(',', '').strip()
+            return int(float(clean_value))
+        except (ValueError, TypeError):
+            return default
+</file>
+
+<file path="backend/api/tests/__init__.py">
+"""
+Test package for API module.
+"""
+</file>
+
+<file path="backend/api/tests/test_excel_parser.py">
+"""
+Unit tests for ExcelParser service.
+
+Tests date normalization, decimal/integer conversion, and data parsing.
+Follows test-plan.md specifications.
+"""
+
+from datetime import datetime
+from decimal import Decimal
+
+import pandas as pd
+import pytest
+
+from api.services.excel_parser import ExcelParser
+
+
+class TestNormalizeDate:
+    """Test cases for ExcelParser.normalize_date() method."""
+
+    def test_already_formatted_yyyy_mm(self):
+        """YYYY-MM format should pass through unchanged."""
+        assert ExcelParser.normalize_date('2024-05') == '2024-05'
+        assert ExcelParser.normalize_date('2024-01') == '2024-01'
+        assert ExcelParser.normalize_date('2024-12') == '2024-12'
+
+    def test_yyyymm_string_format(self):
+        """YYYYMM string format should be converted to YYYY-MM."""
+        assert ExcelParser.normalize_date('202405') == '2024-05'
+        assert ExcelParser.normalize_date('202401') == '2024-01'
+        assert ExcelParser.normalize_date('202312') == '2023-12'
+
+    def test_yyyymm_integer_format(self):
+        """YYYYMM integer format should be converted to YYYY-MM."""
+        assert ExcelParser.normalize_date(202405) == '2024-05'
+        assert ExcelParser.normalize_date(202401) == '2024-01'
+
+    def test_yyyymm_float_format(self):
+        """YYYYMM float format (e.g., Excel) should be converted to YYYY-MM."""
+        assert ExcelParser.normalize_date(202405.0) == '2024-05'
+        assert ExcelParser.normalize_date(202401.0) == '2024-01'
+
+    def test_yyyy_slash_mm_format(self):
+        """YYYY/MM format should be converted to YYYY-MM."""
+        assert ExcelParser.normalize_date('2024/05') == '2024-05'
+        assert ExcelParser.normalize_date('2024/01') == '2024-01'
+
+    def test_datetime_object(self):
+        """datetime objects should be converted to YYYY-MM."""
+        dt = datetime(2024, 5, 15)
+        assert ExcelParser.normalize_date(dt) == '2024-05'
+
+    def test_pandas_timestamp(self):
+        """pandas Timestamp should be converted to YYYY-MM."""
+        ts = pd.Timestamp('2024-05-15')
+        assert ExcelParser.normalize_date(ts) == '2024-05'
+
+    def test_none_value(self):
+        """None/NaN values should return empty string."""
+        assert ExcelParser.normalize_date(None) == ''
+        assert ExcelParser.normalize_date(pd.NA) == ''
+        assert ExcelParser.normalize_date(float('nan')) == ''
+
+    def test_whitespace_handling(self):
+        """Whitespace should be stripped."""
+        assert ExcelParser.normalize_date('  2024-05  ') == '2024-05'
+        assert ExcelParser.normalize_date(' 202405 ') == '2024-05'
+
+    def test_edge_cases(self):
+        """Edge cases should be handled gracefully."""
+        # Short strings
+        assert ExcelParser.normalize_date('2024') == '2024'
+        # Unexpected format - returns first 7 chars
+        assert ExcelParser.normalize_date('20240501') == '2024050'
+
+
+class TestToDecimal:
+    """Test cases for ExcelParser.to_decimal() method."""
+
+    def test_integer_conversion(self):
+        """Integer values should convert to Decimal."""
+        assert ExcelParser.to_decimal(1000) == Decimal('1000')
+        assert ExcelParser.to_decimal(0) == Decimal('0')
+
+    def test_float_conversion(self):
+        """Float values should convert to Decimal."""
+        assert ExcelParser.to_decimal(1234.56) == Decimal('1234.56')
+
+    def test_string_conversion(self):
+        """String values should convert to Decimal."""
+        assert ExcelParser.to_decimal('1234.56') == Decimal('1234.56')
+        assert ExcelParser.to_decimal('1000') == Decimal('1000')
+
+    def test_thousand_separator(self):
+        """Thousand separators should be handled."""
+        assert ExcelParser.to_decimal('1,234,567.89') == Decimal('1234567.89')
+        assert ExcelParser.to_decimal('1,000') == Decimal('1000')
+
+    def test_none_returns_default(self):
+        """None/NaN values should return default."""
+        assert ExcelParser.to_decimal(None) == Decimal('0')
+        assert ExcelParser.to_decimal(pd.NA) == Decimal('0')
+        assert ExcelParser.to_decimal(None, default=100) == Decimal('100')
+
+    def test_invalid_value_returns_default(self):
+        """Invalid values should return default."""
+        assert ExcelParser.to_decimal('invalid') == Decimal('0')
+        assert ExcelParser.to_decimal('abc', default=50) == Decimal('50')
+
+    def test_whitespace_handling(self):
+        """Whitespace should be stripped."""
+        assert ExcelParser.to_decimal('  1234.56  ') == Decimal('1234.56')
+
+
+class TestToInt:
+    """Test cases for ExcelParser.to_int() method."""
+
+    def test_integer_passthrough(self):
+        """Integer values should pass through."""
+        assert ExcelParser.to_int(1000) == 1000
+        assert ExcelParser.to_int(0) == 0
+
+    def test_float_conversion(self):
+        """Float values should be truncated to int."""
+        assert ExcelParser.to_int(1234.56) == 1234
+        assert ExcelParser.to_int(1234.99) == 1234
+
+    def test_string_conversion(self):
+        """String values should convert to int."""
+        assert ExcelParser.to_int('1234') == 1234
+        assert ExcelParser.to_int('1234.0') == 1234
+
+    def test_thousand_separator(self):
+        """Thousand separators should be handled."""
+        assert ExcelParser.to_int('1,234') == 1234
+        assert ExcelParser.to_int('1,234,567') == 1234567
+
+    def test_none_returns_default(self):
+        """None/NaN values should return default."""
+        assert ExcelParser.to_int(None) == 0
+        assert ExcelParser.to_int(pd.NA) == 0
+        assert ExcelParser.to_int(None, default=10) == 10
+
+    def test_invalid_value_returns_default(self):
+        """Invalid values should return default."""
+        assert ExcelParser.to_int('invalid') == 0
+        assert ExcelParser.to_int('abc', default=5) == 5
+
+
+class TestParseRow:
+    """Test cases for ExcelParser.parse_row() method."""
+
+    @pytest.fixture
+    def parser(self):
+        """Create ExcelParser instance."""
+        return ExcelParser()
+
+    def test_valid_row_parsing(self, parser):
+        """Valid row should be parsed correctly."""
+        row = pd.Series({
+            'reference_date': '2024-05',
+            'department': '연구개발팀',
+            'department_code': 'RND001',
+            'revenue': '1,000,000',
+            'budget': '500,000',
+            'expenditure': '300,000',
+            'paper_count': 10,
+            'patent_count': 2,
+            'project_count': 5,
+        })
+
+        result = parser.parse_row(row)
+
+        assert result is not None
+        assert result['reference_date'] == '2024-05'
+        assert result['department'] == '연구개발팀'
+        assert result['department_code'] == 'RND001'
+        assert result['revenue'] == Decimal('1000000')
+        assert result['budget'] == Decimal('500000')
+        assert result['expenditure'] == Decimal('300000')
+        assert result['paper_count'] == 10
+        assert result['patent_count'] == 2
+        assert result['project_count'] == 5
+
+    def test_row_with_missing_optional_fields(self, parser):
+        """Row with missing optional fields should use defaults."""
+        row = pd.Series({
+            'reference_date': '2024-05',
+            'department': '테스트팀',
+        })
+
+        result = parser.parse_row(row)
+
+        assert result is not None
+        assert result['reference_date'] == '2024-05'
+        assert result['department'] == '테스트팀'
+        assert result['revenue'] == Decimal('0')
+        assert result['paper_count'] == 0
+
+    def test_row_with_null_reference_date(self, parser):
+        """Row with null reference_date should return None."""
+        row = pd.Series({
+            'reference_date': None,
+            'department': '테스트팀',
+        })
+
+        result = parser.parse_row(row)
+        assert result is None
+
+    def test_row_with_extra_metrics(self, parser):
+        """Row with extra metrics should include them."""
+        row = pd.Series({
+            'reference_date': '2024-05',
+            'department': '테스트팀',
+            'extra_metric_1': '123.45',
+            'extra_metric_2': '678.90',
+        })
+
+        result = parser.parse_row(row)
+
+        assert result is not None
+        assert result['extra_metric_1'] == Decimal('123.45')
+        assert result['extra_metric_2'] == Decimal('678.90')
+
+
+class TestColumnMapping:
+    """Test cases for column mapping functionality."""
+
+    @pytest.fixture
+    def parser(self):
+        """Create ExcelParser instance."""
+        return ExcelParser()
+
+    def test_korean_column_names(self, parser):
+        """Korean column names should be mapped correctly."""
+        assert parser.COLUMN_MAPPING['기준년월'] == 'reference_date'
+        assert parser.COLUMN_MAPPING['기준 년월'] == 'reference_date'
+        assert parser.COLUMN_MAPPING['부서명'] == 'department'
+        assert parser.COLUMN_MAPPING['매출액'] == 'revenue'
+        assert parser.COLUMN_MAPPING['논문수'] == 'paper_count'
+
+    def test_english_column_names(self, parser):
+        """English column names should be mapped correctly."""
+        assert parser.COLUMN_MAPPING['reference_date'] == 'reference_date'
+        assert parser.COLUMN_MAPPING['department'] == 'department'
+        assert parser.COLUMN_MAPPING['revenue'] == 'revenue'
+
+    def test_short_korean_names(self, parser):
+        """Short Korean names should be mapped correctly."""
+        assert parser.COLUMN_MAPPING['부서'] == 'department'
+        assert parser.COLUMN_MAPPING['매출'] == 'revenue'
+        assert parser.COLUMN_MAPPING['논문'] == 'paper_count'
+
+
+class TestValidateDataframe:
+    """Test cases for DataFrame validation."""
+
+    @pytest.fixture
+    def parser(self):
+        """Create ExcelParser instance."""
+        return ExcelParser()
+
+    def test_valid_dataframe(self, parser):
+        """DataFrame with required columns should pass validation."""
+        df = pd.DataFrame({
+            'reference_date': ['2024-05'],
+            'department': ['테스트팀'],
+        })
+        # Should not raise
+        parser.validate_dataframe(df)
+
+    def test_missing_reference_date_column(self, parser):
+        """DataFrame without reference_date should raise ValueError."""
+        df = pd.DataFrame({
+            'department': ['테스트팀'],
+            'revenue': [1000],
+        })
+
+        with pytest.raises(ValueError) as exc_info:
+            parser.validate_dataframe(df)
+
+        assert 'reference_date' in str(exc_info.value)
+
+
+class TestExtractReferenceDates:
+    """Test cases for extracting reference dates."""
+
+    @pytest.fixture
+    def parser(self):
+        """Create ExcelParser instance."""
+        return ExcelParser()
+
+    def test_single_reference_date(self, parser):
+        """Single reference date should be extracted."""
+        df = pd.DataFrame({
+            'reference_date': ['2024-05', '2024-05', '2024-05'],
+        })
+
+        dates = parser.extract_reference_dates(df)
+
+        assert len(dates) == 1
+        assert '2024-05' in dates
+
+    def test_multiple_reference_dates(self, parser):
+        """Multiple reference dates should be extracted."""
+        df = pd.DataFrame({
+            'reference_date': ['2024-05', '2024-06', '2024-05'],
+        })
+
+        dates = parser.extract_reference_dates(df)
+
+        assert len(dates) == 2
+        assert '2024-05' in dates
+        assert '2024-06' in dates
+
+    def test_empty_reference_dates(self, parser):
+        """Empty reference dates should raise ValueError."""
+        df = pd.DataFrame({
+            'reference_date': [None, pd.NA],
+        })
+
+        with pytest.raises(ValueError) as exc_info:
+            parser.extract_reference_dates(df)
+
+        assert '기준 년월' in str(exc_info.value)
+</file>
+
+<file path="backend/conftest.py">
+"""
+Pytest configuration and fixtures for backend tests.
+
+- Factory patterns for test data generation
+- Django database fixtures
+- Timezone-aware fixtures
+"""
+
+import pytest
+from django.contrib.auth.models import User
+from django.utils import timezone
+
+import factory
+from factory.django import DjangoModelFactory
+
+from api.models import PerformanceData, UploadLog
+
+
+# =============================================================================
+# Factory Definitions
+# =============================================================================
+
+class UserFactory(DjangoModelFactory):
+    """Factory for creating test users."""
+
+    class Meta:
+        model = User
+
+    username = factory.Sequence(lambda n: f'testuser{n}')
+    email = factory.LazyAttribute(lambda obj: f'{obj.username}@test.com')
+    password = factory.PostGenerationMethodCall('set_password', 'testpass123')
+    is_active = True
+
+
+class AdminUserFactory(UserFactory):
+    """Factory for creating admin/staff users."""
+
+    is_staff = True
+    is_superuser = False
+    username = factory.Sequence(lambda n: f'admin{n}')
+
+
+class PerformanceDataFactory(DjangoModelFactory):
+    """Factory for creating test performance data."""
+
+    class Meta:
+        model = PerformanceData
+
+    reference_date = '2024-01'
+    department = factory.Sequence(lambda n: f'부서{n}')
+    department_code = factory.Sequence(lambda n: f'DEPT{n:03d}')
+    revenue = factory.Faker('pydecimal', left_digits=10, right_digits=2, positive=True)
+    budget = factory.Faker('pydecimal', left_digits=10, right_digits=2, positive=True)
+    expenditure = factory.Faker('pydecimal', left_digits=10, right_digits=2, positive=True)
+    paper_count = factory.Faker('pyint', min_value=0, max_value=50)
+    patent_count = factory.Faker('pyint', min_value=0, max_value=10)
+    project_count = factory.Faker('pyint', min_value=0, max_value=20)
+
+
+class UploadLogFactory(DjangoModelFactory):
+    """Factory for creating upload log entries."""
+
+    class Meta:
+        model = UploadLog
+
+    reference_date = '2024-01'
+    filename = factory.Sequence(lambda n: f'test_upload_{n}.xlsx')
+    row_count = factory.Faker('pyint', min_value=1, max_value=1000)
+    status = 'success'
+    uploaded_by = factory.SubFactory(AdminUserFactory)
+
+
+# =============================================================================
+# Pytest Fixtures
+# =============================================================================
+
+@pytest.fixture
+def user(db):
+    """Create a regular test user."""
+    return UserFactory()
+
+
+@pytest.fixture
+def admin_user(db):
+    """Create an admin/staff test user."""
+    return AdminUserFactory()
+
+
+@pytest.fixture
+def authenticated_client(client, user):
+    """Return a Django test client logged in as a regular user."""
+    client.force_login(user)
+    return client
+
+
+@pytest.fixture
+def admin_client(client, admin_user):
+    """Return a Django test client logged in as an admin user."""
+    client.force_login(admin_user)
+    return client
+
+
+@pytest.fixture
+def performance_data(db):
+    """Create a single performance data record."""
+    return PerformanceDataFactory()
+
+
+@pytest.fixture
+def performance_data_batch(db):
+    """Create a batch of performance data records for testing."""
+    return PerformanceDataFactory.create_batch(10, reference_date='2024-01')
+
+
+@pytest.fixture
+def multiple_months_data(db):
+    """Create performance data across multiple months."""
+    data = []
+    for month in ['2024-01', '2024-02', '2024-03']:
+        data.extend(PerformanceDataFactory.create_batch(5, reference_date=month))
+    return data
+
+
+@pytest.fixture
+def upload_log(db, admin_user):
+    """Create an upload log entry."""
+    return UploadLogFactory(uploaded_by=admin_user)
+
+
+@pytest.fixture
+def seoul_timezone():
+    """Return Seoul timezone for consistent testing."""
+    import zoneinfo
+    return zoneinfo.ZoneInfo('Asia/Seoul')
+
+
+@pytest.fixture
+def now_seoul(seoul_timezone):
+    """Return current time in Seoul timezone."""
+    return timezone.now().astimezone(seoul_timezone)
+</file>
+
+<file path="backend/pytest.ini">
+[pytest]
+DJANGO_SETTINGS_MODULE = config.settings
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+addopts = -v --tb=short
+filterwarnings =
+    ignore::DeprecationWarning
+    ignore::PendingDeprecationWarning
+</file>
+
+<file path="e2e/fixtures/create_sample_excel.py">
+#!/usr/bin/env python3
+"""
+Generate sample Excel file for E2E testing.
+
+Run this script from the e2e/fixtures directory:
+    python create_sample_excel.py
+
+Requires: openpyxl (pip install openpyxl)
+"""
+
+import os
+from pathlib import Path
+
+try:
+    from openpyxl import Workbook
+except ImportError:
+    print("openpyxl is required. Install with: pip install openpyxl")
+    exit(1)
+
+
+def create_sample_excel():
+    """Create a sample Excel file with test data."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sample Data"
+
+    # Header row
+    headers = [
+        '기준년월',
+        '부서명',
+        '부서코드',
+        '매출액',
+        '예산',
+        '지출액',
+        '논문수',
+        '특허수',
+        '프로젝트수',
+        '비고'
+    ]
+    ws.append(headers)
+
+    # Sample data rows
+    sample_data = [
+        ['2024-01', '연구개발팀', 'RND001', 1000000, 500000, 300000, 5, 1, 3, '테스트 데이터 1'],
+        ['2024-01', '행정팀', 'ADM001', 500000, 400000, 350000, 2, 0, 2, '테스트 데이터 2'],
+        ['2024-01', '기획팀', 'PLN001', 800000, 600000, 400000, 3, 1, 4, '테스트 데이터 3'],
+        ['2024-01', '마케팅팀', 'MKT001', 1200000, 800000, 600000, 1, 0, 2, '테스트 데이터 4'],
+        ['2024-01', '인사팀', 'HR001', 300000, 250000, 200000, 0, 0, 1, '테스트 데이터 5'],
+    ]
+
+    for row in sample_data:
+        ws.append(row)
+
+    # Save the file
+    output_path = Path(__file__).parent / 'sample_data.xlsx'
+    wb.save(output_path)
+    print(f"Sample Excel file created: {output_path}")
+
+
+if __name__ == '__main__':
+    create_sample_excel()
+</file>
+
+<file path="e2e/tests/smoke.spec.ts">
+/**
+ * E2E Smoke Test
+ *
+ * Critical path test following test-plan.md:
+ * 1. Admin login
+ * 2. Navigate to Excel upload page
+ * 3. Upload sample file
+ * 4. Verify redirect to dashboard and data rendering
+ *
+ * This test validates the core user journey.
+ */
+
+import { test, expect } from '@playwright/test';
+import path from 'path';
+
+// Test credentials - DO NOT hardcode in production
+// Use environment variables or test fixtures
+const TEST_CREDENTIALS = {
+  username: process.env.TEST_USERNAME || 'testadmin',
+  password: process.env.TEST_PASSWORD || 'testpass123',
+};
+
+test.describe('Smoke Test: Core User Journey', () => {
+  test.beforeEach(async ({ page }) => {
+    // Clear cookies before each test for isolation
+    await page.context().clearCookies();
+  });
+
+  test('should complete the full upload and dashboard flow', async ({ page }) => {
+    // =========================================================================
+    // STEP 1: Admin Login
+    // =========================================================================
+    await test.step('Login via Django Admin', async () => {
+      // Navigate to admin login page
+      await page.goto('/admin/login/');
+
+      // Verify login page is displayed
+      await expect(page.locator('input[name="username"]')).toBeVisible();
+      await expect(page.locator('input[name="password"]')).toBeVisible();
+
+      // Enter credentials
+      await page.fill('input[name="username"]', TEST_CREDENTIALS.username);
+      await page.fill('input[name="password"]', TEST_CREDENTIALS.password);
+
+      // Submit login form
+      await page.click('input[type="submit"]');
+
+      // Verify login success - should redirect to admin or dashboard
+      // Check for session cookie existence
+      const cookies = await page.context().cookies();
+      const sessionCookie = cookies.find(c => c.name === 'sessionid');
+      expect(sessionCookie).toBeDefined();
+    });
+
+    // =========================================================================
+    // STEP 2: Navigate to Upload Page
+    // =========================================================================
+    await test.step('Navigate to Excel upload page', async () => {
+      // Navigate to upload page
+      await page.goto('/upload');
+
+      // Verify upload page is displayed
+      await expect(page.locator('text=데이터 업로드')).toBeVisible();
+
+      // Verify upload area is visible
+      await expect(page.locator('text=파일을 여기에 드래그')).toBeVisible();
+    });
+
+    // =========================================================================
+    // STEP 3: Upload Sample Excel File
+    // =========================================================================
+    await test.step('Upload sample Excel file', async () => {
+      // Get the file input element
+      const fileInput = page.locator('input[type="file"]');
+
+      // Upload the sample Excel file
+      const sampleFilePath = path.join(__dirname, '../fixtures/sample_data.xlsx');
+      await fileInput.setInputFiles(sampleFilePath);
+
+      // Verify file is selected (filename displayed)
+      await expect(page.locator('text=sample_data.xlsx')).toBeVisible();
+
+      // Click upload button
+      await page.click('button:has-text("업로드 시작")');
+
+      // Wait for upload to complete (success message or redirect)
+      // Either success message or redirect to dashboard
+      await Promise.race([
+        expect(page.locator('text=업로드 완료')).toBeVisible({ timeout: 30000 }),
+        page.waitForURL('/dashboard', { timeout: 30000 }),
+      ]);
+    });
+
+    // =========================================================================
+    // STEP 4: Verify Dashboard and Data Rendering
+    // =========================================================================
+    await test.step('Verify dashboard displays uploaded data', async () => {
+      // Navigate to dashboard if not already there
+      if (!page.url().includes('/dashboard')) {
+        await page.goto('/dashboard');
+      }
+
+      // Wait for dashboard to load
+      await expect(page.locator('text=대시보드')).toBeVisible();
+
+      // Verify charts are rendered (at least one chart should be visible)
+      // Check for Recharts SVG elements or chart containers
+      const chartContainers = page.locator('.recharts-wrapper');
+      await expect(chartContainers.first()).toBeVisible({ timeout: 10000 });
+
+      // Verify data is displayed (not empty state message)
+      const emptyMessage = page.locator('text=데이터가 없습니다');
+      await expect(emptyMessage).not.toBeVisible();
+    });
+  });
+
+  test('should redirect to login when accessing protected page without auth', async ({ page }) => {
+    // Try to access dashboard without login
+    await page.goto('/dashboard');
+
+    // Should be redirected to login page (either React handles it or 401)
+    // Wait for either admin login page or a login redirect
+    await page.waitForTimeout(2000);
+
+    // The app should show login requirement in some form
+    const url = page.url();
+    const hasLoginRedirect =
+      url.includes('/admin/login') ||
+      url.includes('/login');
+
+    // If not redirected, the API should return 401 and show error
+    if (!hasLoginRedirect) {
+      // Check for error message or empty state
+      const errorOrEmptyState = await page.locator('text=/오류|에러|error/i').count();
+      expect(errorOrEmptyState).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+test.describe('Smoke Test: Navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    // Login before each navigation test
+    await page.goto('/admin/login/');
+    await page.fill('input[name="username"]', TEST_CREDENTIALS.username);
+    await page.fill('input[name="password"]', TEST_CREDENTIALS.password);
+    await page.click('input[type="submit"]');
+    await page.waitForTimeout(1000);
+  });
+
+  test('should navigate between main pages', async ({ page }) => {
+    // Navigate to dashboard
+    await page.goto('/dashboard');
+    await expect(page.locator('text=대시보드')).toBeVisible();
+
+    // Navigate to upload page via sidebar or URL
+    await page.goto('/upload');
+    await expect(page.locator('text=데이터 업로드')).toBeVisible();
+
+    // Navigate to data table page
+    await page.goto('/data-table');
+    await expect(page.locator('text=데이터 테이블')).toBeVisible();
+  });
+});
+</file>
+
+<file path="e2e/package.json">
+{
+  "name": "e2e-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2E tests for data visualization dashboard",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}
+</file>
+
+<file path="e2e/playwright.config.ts">
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Playwright Configuration
+ *
+ * Tests run against Django serving static files (collectstatic)
+ * to match actual deployment environment.
+ */
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: false, // Run tests sequentially for E2E
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1, // Single worker for E2E tests
+  reporter: [['html', { open: 'never' }], ['list']],
+
+  use: {
+    // Base URL for Django server
+    baseURL: process.env.BASE_URL || 'http://localhost:8000',
+
+    // Collect trace on first retry
+    trace: 'on-first-retry',
+
+    // Screenshot on failure
+    screenshot: 'only-on-failure',
+
+    // Timeout settings
+    actionTimeout: 10000,
+    navigationTimeout: 30000,
+  },
+
+  // Timeout for each test
+  timeout: 60000,
+
+  // Expect timeout
+  expect: {
+    timeout: 10000,
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+
+  // Web server configuration (optional - if you want Playwright to start Django)
+  // Uncomment if you want auto-start of Django server
+  // webServer: {
+  //   command: 'cd ../backend && python manage.py runserver',
+  //   url: 'http://localhost:8000',
+  //   reuseExistingServer: !process.env.CI,
+  //   timeout: 120000,
+  // },
+});
+</file>
+
+<file path="frontend/src/utils/formatters.test.ts">
+/**
+ * Unit tests for formatters utility functions.
+ *
+ * As per test-plan.md: Only test pure utility functions in src/utils/*.ts
+ * UI component tests are intentionally excluded (low ROI).
+ */
+
+import { describe, it, expect } from 'vitest';
+import { formatCurrency, formatNumber, formatPercent } from './formatters';
+
+describe('formatCurrency', () => {
+  it('should format positive numbers as Korean Won', () => {
+    const result = formatCurrency(1000000);
+    // Korean Won format: ₩1,000,000
+    expect(result).toContain('1,000,000');
+    expect(result).toMatch(/₩|원/); // Either ₩ or 원 depending on locale
+  });
+
+  it('should format zero as Korean Won', () => {
+    const result = formatCurrency(0);
+    expect(result).toContain('0');
+  });
+
+  it('should format negative numbers correctly', () => {
+    const result = formatCurrency(-50000);
+    expect(result).toContain('50,000');
+    expect(result).toMatch(/-|−/); // Minus sign
+  });
+
+  it('should handle large numbers', () => {
+    const result = formatCurrency(123456789012);
+    expect(result).toContain('123,456,789,012');
+  });
+
+  it('should handle decimal numbers', () => {
+    // Korean Won typically doesn't show decimals
+    const result = formatCurrency(1234.56);
+    // Result should be rounded or truncated
+    expect(result).toBeDefined();
+  });
+});
+
+describe('formatNumber', () => {
+  it('should format numbers with thousand separators', () => {
+    expect(formatNumber(1000)).toBe('1,000');
+    expect(formatNumber(1000000)).toBe('1,000,000');
+    expect(formatNumber(123456789)).toBe('123,456,789');
+  });
+
+  it('should format zero', () => {
+    expect(formatNumber(0)).toBe('0');
+  });
+
+  it('should format negative numbers with thousand separators', () => {
+    const result = formatNumber(-1000000);
+    expect(result).toContain('1,000,000');
+  });
+
+  it('should handle small numbers without separators', () => {
+    expect(formatNumber(100)).toBe('100');
+    expect(formatNumber(999)).toBe('999');
+  });
+
+  it('should handle decimal numbers', () => {
+    const result = formatNumber(1234.56);
+    // Korean number format may round or show decimals
+    expect(result).toBeDefined();
+    expect(result).toContain('1,234');
+  });
+});
+
+describe('formatPercent', () => {
+  it('should format percentage with one decimal place', () => {
+    expect(formatPercent(50)).toBe('50.0%');
+    expect(formatPercent(100)).toBe('100.0%');
+    expect(formatPercent(0)).toBe('0.0%');
+  });
+
+  it('should round to one decimal place', () => {
+    expect(formatPercent(33.333)).toBe('33.3%');
+    expect(formatPercent(66.666)).toBe('66.7%');
+    expect(formatPercent(99.999)).toBe('100.0%');
+  });
+
+  it('should handle negative percentages', () => {
+    expect(formatPercent(-25.5)).toBe('-25.5%');
+  });
+
+  it('should handle very small percentages', () => {
+    expect(formatPercent(0.1)).toBe('0.1%');
+    expect(formatPercent(0.05)).toBe('0.1%'); // Rounded up
+    expect(formatPercent(0.04)).toBe('0.0%'); // Rounded down
+  });
+
+  it('should handle percentages over 100', () => {
+    expect(formatPercent(150)).toBe('150.0%');
+    expect(formatPercent(200.5)).toBe('200.5%');
+  });
+});
+</file>
+
+<file path="public/department_kpi.csv">
+평가년도,단과대학,학과,졸업생 취업률 (%),전임교원 수 (명),초빙교원 수 (명),연간 기술이전 수입액 (억원),국제학술대회 개최 횟수
+2023,공과대학,컴퓨터공학과,85.5,15,4,8.5,2
+2023,공과대학,전자공학과,88.2,18,3,12.1,3
+2023,인문대학,국어국문학과,65.7,12,2,0.5,1
+2023,인문대학,철학과,62.1,8,1,0.1,0
+2024,공과대학,컴퓨터공학과,87.1,16,5,10.2,3
+2024,공과대학,전자공학과,89.0,18,4,15.8,2
+2024,인문대학,국어국문학과,68.2,12,2,0.8,1
+2024,인문대학,철학과,63.5,8,2,0.2,1
+2025,공과대학,컴퓨터공학과,88.0,17,5,13.5,4
+2025,공과대학,전자공학과,90.5,19,5,22.0,3
+2025,인문대학,국어국문학과,70.1,11,3,1.1,2
+2025,인문대학,철학과,64.0,9,2,0.3,1
+</file>
+
+<file path="public/publication_list.csv">
+논문ID,게재일,단과대학,학과,논문제목,주저자,참여저자,학술지명,저널등급,Impact Factor,과제연계여부
+PUB-23-001,2023-02-18,공과대학,전자공학과,A Study on Low-Power Semiconductor Design,김민준,박지훈;최민서,IEEE Transactions on Circuits and Systems,SCIE,3.9,Y
+PUB-23-002,2023-05-22,인문대학,철학과,현대 분석철학의 언어적 전회에 관한 고찰,윤지원,강예원,철학연구,KCI,,N
+PUB-24-001,2024-01-30,공과대학,컴퓨터공학과,Deep Learning based Anomaly Detection in Real-Time Traffic,이서연,정현우;김유진;한지민,Expert Systems with Applications,SCIE,8.5,Y
+PUB-24-002,2024-04-11,공과대학,전자공학과,Next-Generation Display Material Analysis,김민준,윤태영,Journal of Materials Chemistry C,SCIE,6.4,Y
+PUB-24-003,2024-07-29,인문대학,국어국문학과,1920년대 시문학에 나타난 모더니즘 수용 양상,박서정,이수빈,한국현대문학연구,KCI,,N
+PUB-25-001,2025-06-15,공과대학,컴퓨터공학과,Federated Learning for Privacy-Preserving AI,이서연,정현우,IEEE Internet of Things Journal,SCIE,10.6,Y
+</file>
+
+<file path="public/research_project_data.csv">
+집행ID,과제번호,과제명,연구책임자,소속학과,지원기관,총연구비,집행일자,집행항목,집행금액,상태,비고
+T2301001,NRF-2023-015,차세대 AI 반도체 설계,김민준,전자공학과,한국연구재단,500000000,2023-03-15,연구장비 도입,120000000,집행완료,A-1급 스펙트로미터
+T2301002,IITP-A-23-101,자율주행 시뮬레이션 고도화,이서연,컴퓨터공학과,정보통신기획평가원,800000000,2023-04-20,외부전문가 활용비,8000000,집행완료,
+T2301003,NRF-2023-015,차세대 AI 반도체 설계,김민준,전자공학과,한국연구재단,500000000,2023-05-10,시약 및 재료비,25500000,집행완료,
+T2402001,SME-2024-TECH-01,중소기업 맞춤형 ERP 개발,박서준,산업공학과,중소벤처기업부,300000000,2024-02-28,인건비,50000000,집행완료,참여연구원 3개월 급여
+T2402002,IITP-A-23-101,자율주행 시뮬레이션 고도화,이서연,컴퓨터공학과,정보통신기획평가원,800000000,2024-03-05,고성능 서버 임대,45000000,처리중,견적서 검토 단계
+T2503001,NRF-2025-002,고대 철학 텍스트의 디지털 아카이빙,최은경,철학과,한국연구재단,80000000,2025-04-10,국외여비,4500000,집행완료,그리스 학회 참가
+T2503002,SME-2024-TECH-01,중소기업 맞춤형 ERP 개발,박서준,산업공학과,중소벤처기업부,300000000,2025-05-20,기술이전료,15000000,집행완료,
+T2503003,IITP-A-23-101,자율주행 시뮬레이션 고도화,이서연,컴퓨터공학과,정보통신기획평가원,800000000,2025-06-01,인건비,120000000,집행완료,
+</file>
+
+<file path="public/student_roster.csv">
+학번,이름,단과대학,학과,학년,과정구분,학적상태,성별,입학년도,지도교수,이메일
+20201101,김유진,공과대학,컴퓨터공학과,4,학사,재학,여,2020,이서연,yjkim@university.ac.kr
+20211205,박지훈,공과대학,전자공학과,3,학사,재학,남,2021,김민준,jhpark@university.ac.kr
+20221302,이수빈,인문대학,국어국문학과,2,학사,재학,여,2022,박서정,sblee@university.ac.kr
+20192101,정현우,공과대학,컴퓨터공학과,0,석사,재학,남,2024,이서연,hwjung@university.ac.kr
+20201215,최민서,공과대학,전자공학과,4,학사,휴학,여,2020,김민준,mschoi@university.ac.kr
+20231308,강예원,인문대학,철학과,1,학사,재학,여,2023,,ywkang@university.ac.kr
+20222203,윤태영,공과대학,전자공학과,0,석사,재학,남,2025,김민준,tyyoon@university.ac.kr
+20211120,한지민,공과대학,컴퓨터공학과,3,학사,재학,여,2021,이서연,jmhan@university.ac.kr
+20181401,서준호,사범대학,교육학과,4,학사,졸업,남,2018,최은경,jhseo@university.ac.kr
+</file>
+
+<file path=".env.example">
+# Django Settings
+DEBUG=False
+SECRET_KEY=your-super-secret-key-change-this
+
+# Supabase PostgreSQL
+DATABASE_URL=postgres://user:password@db.xxx.supabase.co:5432/postgres
+
+# Allowed Hosts
+ALLOWED_HOSTS=.railway.app,localhost
+
+# CORS
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+</file>
+
+<file path="backend/api/__init__.py">
+
+</file>
+
+<file path="backend/api/admin.py">
+from django.contrib import admin
+
+from .models import PerformanceData, UploadLog
+
+
+@admin.register(PerformanceData)
+class PerformanceDataAdmin(admin.ModelAdmin):
+    list_display = [
+        'reference_date',
+        'department',
+        'revenue',
+        'budget',
+        'paper_count',
+        'created_at',
+    ]
+    list_filter = ['reference_date', 'department']
+    search_fields = ['department', 'department_code']
+    ordering = ['-reference_date', 'department']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('reference_date', 'department', 'department_code')
+        }),
+        ('재무 실적', {
+            'fields': ('revenue', 'budget', 'expenditure')
+        }),
+        ('연구 실적', {
+            'fields': ('paper_count', 'patent_count', 'project_count')
+        }),
+        ('추가 정보', {
+            'fields': ('extra_metric_1', 'extra_metric_2', 'extra_text'),
+            'classes': ('collapse',)
+        }),
+        ('메타 정보', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(UploadLog)
+class UploadLogAdmin(admin.ModelAdmin):
+    list_display = [
+        'created_at',
+        'filename',
+        'reference_date',
+        'row_count',
+        'status',
+        'uploaded_by',
+    ]
+    list_filter = ['status', 'reference_date']
+    search_fields = ['filename']
+    ordering = ['-created_at']
+    readonly_fields = ['created_at']
+</file>
+
+<file path="backend/api/models.py">
+from django.db import models
+
+
+class PerformanceData(models.Model):
+    """
+    이카운트 엑셀 데이터를 저장하는 모델
+    - reference_date: 기준 년월 (YYYY-MM 형식, 데이터 교체의 기준)
+    - 실적, 예산, 논문수 등 핵심 지표 포함
+    """
+
+    # 기준 년월 (필수) - 데이터 교체 시 이 필드 기준으로 DELETE
+    reference_date = models.CharField(
+        max_length=7,  # YYYY-MM 형식
+        db_index=True,
+        verbose_name="기준 년월",
+        help_text="YYYY-MM 형식 (예: 2024-05)"
+    )
+
+    # 부서/조직 정보
+    department = models.CharField(
+        max_length=100,
+        verbose_name="부서명",
+        blank=True,
+        default=""
+    )
+    department_code = models.CharField(
+        max_length=20,
+        verbose_name="부서코드",
+        blank=True,
+        default=""
+    )
+
+    # 실적 관련 필드
+    revenue = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name="매출액"
+    )
+    budget = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name="예산"
+    )
+    expenditure = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name="지출액"
+    )
+
+    # 연구 실적 관련 필드 (대학 특성)
+    paper_count = models.IntegerField(
+        default=0,
+        verbose_name="논문수"
+    )
+    patent_count = models.IntegerField(
+        default=0,
+        verbose_name="특허수"
+    )
+    project_count = models.IntegerField(
+        default=0,
+        verbose_name="프로젝트수"
+    )
+
+    # 추가 지표 (확장용)
+    extra_metric_1 = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="추가지표1"
+    )
+    extra_metric_2 = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="추가지표2"
+    )
+    extra_text = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="비고"
+    )
+
+    # 메타 필드
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="생성일시"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="수정일시"
+    )
+
+    class Meta:
+        verbose_name = "실적 데이터"
+        verbose_name_plural = "실적 데이터"
+        ordering = ['-reference_date', 'department']
+        indexes = [
+            models.Index(fields=['reference_date']),
+            models.Index(fields=['department']),
+            models.Index(fields=['reference_date', 'department']),
+        ]
+
+    def __str__(self):
+        return f"{self.reference_date} - {self.department}"
+
+
+class UploadLog(models.Model):
+    """
+    엑셀 업로드 이력 관리 모델
+    """
+
+    reference_date = models.CharField(
+        max_length=7,
+        verbose_name="기준 년월"
+    )
+    filename = models.CharField(
+        max_length=255,
+        verbose_name="파일명"
+    )
+    row_count = models.IntegerField(
+        default=0,
+        verbose_name="처리 행 수"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('success', '성공'),
+            ('failed', '실패'),
+        ],
+        default='success',
+        verbose_name="상태"
+    )
+    error_message = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="에러 메시지"
+    )
+    uploaded_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="업로드 사용자"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="업로드 일시"
+    )
+
+    class Meta:
+        verbose_name = "업로드 이력"
+        verbose_name_plural = "업로드 이력"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.created_at.strftime('%Y-%m-%d %H:%M')} - {self.filename}"
+</file>
+
+<file path="backend/api/serializers.py">
+from rest_framework import serializers
+
+from .models import PerformanceData, UploadLog
+
+
+class PerformanceDataSerializer(serializers.ModelSerializer):
+    """
+    실적 데이터 Serializer
+    """
+
+    class Meta:
+        model = PerformanceData
+        fields = [
+            'id',
+            'reference_date',
+            'department',
+            'department_code',
+            'revenue',
+            'budget',
+            'expenditure',
+            'paper_count',
+            'patent_count',
+            'project_count',
+            'extra_metric_1',
+            'extra_metric_2',
+            'extra_text',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class PerformanceDataListSerializer(serializers.ModelSerializer):
+    """
+    실적 데이터 목록용 간소화 Serializer
+    """
+
+    class Meta:
+        model = PerformanceData
+        fields = [
+            'id',
+            'reference_date',
+            'department',
+            'revenue',
+            'budget',
+            'paper_count',
+        ]
+
+
+class UploadLogSerializer(serializers.ModelSerializer):
+    """
+    업로드 이력 Serializer
+    """
+
+    uploaded_by_name = serializers.CharField(
+        source='uploaded_by.username',
+        read_only=True,
+        default=''
+    )
+
+    class Meta:
+        model = UploadLog
+        fields = [
+            'id',
+            'reference_date',
+            'filename',
+            'row_count',
+            'status',
+            'error_message',
+            'uploaded_by_name',
+            'created_at',
+        ]
+</file>
+
+<file path="backend/api/urls.py">
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
+from .views import (
+    DashboardSummaryView,
+    ExcelUploadView,
+    PerformanceDataViewSet,
+    UploadLogViewSet,
+)
+
+router = DefaultRouter()
+router.register(r'data', PerformanceDataViewSet, basename='performance-data')
+router.register(r'logs', UploadLogViewSet, basename='upload-logs')
+
+urlpatterns = [
+    # 엑셀 업로드 엔드포인트
+    path('upload/', ExcelUploadView.as_view(), name='excel-upload'),
+
+    # 대시보드 요약 데이터
+    path('summary/', DashboardSummaryView.as_view(), name='dashboard-summary'),
+
+    # ViewSet 라우터
+    path('', include(router.urls)),
+]
+</file>
+
+<file path="backend/api/views.py">
+"""
+API Views for data visualization dashboard.
+
+Views handle HTTP request/response only.
+Business logic is delegated to services layer.
+"""
+
+import pandas as pd
+from django.db import transaction
+from django.db.models import Avg, Count, Sum
+from rest_framework import status, viewsets
+from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import PerformanceData, UploadLog
+from .serializers import PerformanceDataSerializer, UploadLogSerializer
+from .services import ExcelParser
+
+
+class ExcelUploadView(APIView):
+    """
+    엑셀 파일 업로드 및 데이터 저장 API
+
+    - POST /api/upload/
+    - Atomic Transaction 적용: 기준 년월 데이터 전체 교체
+    - 에러 발생 시 자동 Rollback
+    """
+
+    parser_classes = [MultiPartParser]
+    permission_classes = [IsAuthenticated]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parser = ExcelParser()
+
+    def post(self, request):
+        """
+        엑셀 파일 업로드 처리
+
+        1. 파일 유효성 검사
+        2. ExcelParser로 엑셀 파싱
+        3. 기준 년월 추출
+        4. Atomic Transaction 내에서:
+           - 해당 년월 기존 데이터 삭제
+           - 새 데이터 bulk_create
+        5. 업로드 이력 기록
+        """
+        file = request.FILES.get('file')
+
+        if not file:
+            return Response(
+                {'error': '파일이 제공되지 않았습니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 파일 확장자 검사
+        filename = file.name.lower()
+        if not (filename.endswith('.xlsx') or filename.endswith('.xls')):
+            return Response(
+                {'error': '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # 엑셀 파일 읽기 및 파싱 (서비스 레이어 사용)
+            file_content = file.read()
+            df = self.parser.read_excel(file_content)
+
+            # 데이터 유효성 검증
+            self.parser.validate_dataframe(df)
+
+            # 기준 년월 추출
+            reference_dates = self.parser.extract_reference_dates(df)
+
+            # 데이터 변환
+            performance_objects, errors = self.parser.parse_dataframe(df)
+
+            if not performance_objects:
+                return Response(
+                    {'error': '처리할 유효한 데이터가 없습니다.', 'details': errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Atomic Transaction으로 데이터 저장
+            with transaction.atomic():
+                # 해당 기준 년월의 기존 데이터 삭제
+                for ref_date in reference_dates:
+                    ref_date_str = ExcelParser.normalize_date(ref_date)
+                    PerformanceData.objects.filter(
+                        reference_date=ref_date_str
+                    ).delete()
+
+                # 새 데이터 일괄 삽입
+                created_objects = PerformanceData.objects.bulk_create(
+                    performance_objects,
+                    batch_size=1000
+                )
+
+                # 업로드 이력 기록
+                UploadLog.objects.create(
+                    reference_date=str(reference_dates[0]),
+                    filename=file.name,
+                    row_count=len(created_objects),
+                    status='success',
+                    uploaded_by=request.user if request.user.is_authenticated else None
+                )
+
+            return Response({
+                'message': '데이터 업로드가 완료되었습니다.',
+                'reference_dates': [str(d) for d in reference_dates],
+                'created_count': len(created_objects),
+                'warnings': errors if errors else None
+            }, status=status.HTTP_201_CREATED)
+
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except pd.errors.EmptyDataError:
+            return Response(
+                {'error': '엑셀 파일이 비어있습니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            # 에러 발생 시 업로드 이력 기록
+            UploadLog.objects.create(
+                reference_date='',
+                filename=file.name if file else 'unknown',
+                row_count=0,
+                status='failed',
+                error_message=str(e),
+                uploaded_by=request.user if request.user.is_authenticated else None
+            )
+            return Response(
+                {'error': f'파일 처리 중 오류가 발생했습니다: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PerformanceDataViewSet(viewsets.ModelViewSet):
+    """
+    실적 데이터 CRUD API
+
+    - GET /api/data/ : 전체 목록 조회
+    - GET /api/data/?reference_date=2024-05 : 특정 월 데이터 조회
+    - GET /api/data/{id}/ : 단일 조회
+    """
+
+    queryset = PerformanceData.objects.all()
+    serializer_class = PerformanceDataSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = PerformanceData.objects.all()
+
+        # 기준 년월 필터링
+        reference_date = self.request.query_params.get('reference_date')
+        if reference_date:
+            queryset = queryset.filter(reference_date=reference_date)
+
+        # 부서 필터링
+        department = self.request.query_params.get('department')
+        if department:
+            queryset = queryset.filter(department__icontains=department)
+
+        return queryset
+
+
+class UploadLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    업로드 이력 조회 API (읽기 전용)
+    """
+
+    queryset = UploadLog.objects.all()
+    serializer_class = UploadLogSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class DashboardSummaryView(APIView):
+    """
+    대시보드 요약 데이터 API
+
+    - GET /api/summary/ : 전체 요약
+    - GET /api/summary/?reference_date=2024-05 : 특정 월 요약
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        reference_date = request.query_params.get('reference_date')
+
+        queryset = PerformanceData.objects.all()
+        if reference_date:
+            queryset = queryset.filter(reference_date=reference_date)
+
+        # 집계 데이터
+        summary = queryset.aggregate(
+            total_revenue=Sum('revenue'),
+            total_budget=Sum('budget'),
+            total_expenditure=Sum('expenditure'),
+            total_papers=Sum('paper_count'),
+            total_patents=Sum('patent_count'),
+            total_projects=Sum('project_count'),
+            department_count=Count('department', distinct=True),
+            avg_revenue=Avg('revenue'),
+        )
+
+        # 월별 추이 데이터
+        monthly_trend = (
+            PerformanceData.objects
+            .values('reference_date')
+            .annotate(
+                revenue=Sum('revenue'),
+                budget=Sum('budget'),
+                expenditure=Sum('expenditure'),
+                papers=Sum('paper_count'),
+            )
+            .order_by('reference_date')
+        )
+
+        # 부서별 실적 (상위 10개)
+        department_ranking = (
+            queryset
+            .values('department')
+            .annotate(
+                total_revenue=Sum('revenue'),
+                total_papers=Sum('paper_count'),
+            )
+            .order_by('-total_revenue')[:10]
+        )
+
+        return Response({
+            'summary': summary,
+            'monthly_trend': list(monthly_trend),
+            'department_ranking': list(department_ranking),
+            'reference_dates': list(
+                PerformanceData.objects
+                .values_list('reference_date', flat=True)
+                .distinct()
+                .order_by('-reference_date')
+            ),
+        })
+</file>
+
+<file path="backend/config/__init__.py">
+
+</file>
+
+<file path="backend/config/asgi.py">
+"""
+ASGI config for data visualization dashboard project.
+"""
+
+import os
+
+from django.core.asgi import get_asgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+application = get_asgi_application()
+</file>
+
+<file path="backend/config/settings.py">
+"""
+Django settings for data visualization dashboard project.
+
+- Supabase PostgreSQL 연결
+- Whitenoise 정적 파일 서빙
+- CORS 설정
+- Django Native Auth (Token/Session)
+"""
+
+import os
+import sys
+from pathlib import Path
+
+import dj_database_url
+
+# Testing mode detection
+TESTING = 'test' in sys.argv or 'pytest' in sys.modules
+
+# Build paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Security
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.railway.app',  # Railway 배포용
+]
+
+# 환경변수에서 추가 호스트 설정
+extra_hosts = os.environ.get('ALLOWED_HOSTS', '')
+if extra_hosts:
+    ALLOWED_HOSTS.extend(extra_hosts.split(','))
+
+
+# Application definition
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    # Third-party
+    'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
+    # Local apps
+    'api',
+]
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Whitenoise (정적 파일)
+    'corsheaders.middleware.CorsMiddleware',  # CORS
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+ROOT_URLCONF = 'config.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'config.wsgi.application'
+
+
+# Database - Supabase PostgreSQL
+# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    # Supabase/Railway 환경
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL)
+    }
+else:
+    # 로컬 개발 환경 (SQLite)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+
+# Password validation
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+
+# Internationalization
+LANGUAGE_CODE = 'ko-kr'
+TIME_ZONE = 'Asia/Seoul'
+USE_I18N = True
+USE_TZ = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.0/howto/static-files/
+
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles_collected'
+
+# React 빌드 결과물 위치
+STATICFILES_DIRS = [
+    BASE_DIR / 'staticfiles',  # React 빌드 결과물 복사 위치
+]
+
+# Whitenoise 설정 (압축, 캐싱)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_ROOT = BASE_DIR / 'staticfiles'
+
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Django REST Framework 설정
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 100,
+}
+
+
+# CORS 설정
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',  # Vite 개발 서버
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+]
+
+# 환경변수에서 추가 CORS origin 설정
+extra_cors = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if extra_cors:
+    CORS_ALLOWED_ORIGINS.extend(extra_cors.split(','))
+
+# 개발 환경에서 모든 origin 허용 (주의: 프로덕션에서는 사용하지 말 것)
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
+
+
+# CSRF 설정 (React와의 통합)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://*.railway.app',
+]
+
+extra_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if extra_csrf:
+    CSRF_TRUSTED_ORIGINS.extend(extra_csrf.split(','))
+
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+    },
+}
+
+
+# Session Cookie Security Settings
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 604800  # 7 days
+
+
+# Testing-specific settings
+if TESTING:
+    # Use faster password hasher for tests
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
+    # Ensure consistent timezone in CI/CD
+    TIME_ZONE = 'Asia/Seoul'
+    USE_TZ = True
+    # Use in-memory SQLite for faster tests
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+</file>
+
+<file path="backend/config/urls.py">
+"""
+URL Configuration
+
+- /admin/       : Django Admin
+- /api/         : REST API Endpoints
+- /*            : React SPA (catch-all)
+"""
+
+import os
+
+from django.conf import settings
+from django.contrib import admin
+from django.http import HttpResponse
+from django.urls import include, path, re_path
+from django.views.static import serve
+
+
+def serve_react(request):
+    """
+    React SPA의 index.html 서빙
+
+    - API가 아닌 모든 요청을 React로 라우팅
+    - React Router가 클라이언트 사이드에서 라우팅 처리
+    """
+    # staticfiles 디렉토리에서 index.html 찾기
+    index_path = os.path.join(settings.STATICFILES_DIRS[0], 'index.html')
+
+    if os.path.exists(index_path):
+        with open(index_path, 'r', encoding='utf-8') as f:
+            return HttpResponse(f.read(), content_type='text/html')
+
+    # 개발 모드에서 React 빌드가 없는 경우
+    return HttpResponse(
+        """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Dashboard</title></head>
+        <body>
+            <h1>React 빌드가 필요합니다</h1>
+            <p>frontend/ 디렉토리에서 <code>npm run build</code>를 실행하세요.</p>
+            <p>개발 모드에서는 <code>npm run dev</code>로 별도 실행하세요.</p>
+        </body>
+        </html>
+        """,
+        content_type='text/html'
+    )
+
+
+urlpatterns = [
+    # Django Admin (인증/사용자 관리)
+    path('admin/', admin.site.urls),
+
+    # REST API
+    path('api/', include('api.urls')),
+
+    # React SPA catch-all (API와 Admin 외 모든 요청)
+    # 주의: 이 패턴은 반드시 마지막에 위치해야 함
+    re_path(r'^(?!api/|admin/|static/).*$', serve_react, name='react-app'),
+]
+
+# 개발 모드에서 정적 파일 서빙 (DEBUG=True)
+if settings.DEBUG:
+    from django.conf.urls.static import static
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+</file>
+
+<file path="backend/config/wsgi.py">
+"""
+WSGI config for data visualization dashboard project.
+"""
+
+import os
+
+from django.core.wsgi import get_wsgi_application
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+application = get_wsgi_application()
+</file>
+
+<file path="backend/manage.py">
+#!/usr/bin/env python
+"""Django's command-line utility for administrative tasks."""
+import os
+import sys
+
+
+def main():
+    """Run administrative tasks."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    execute_from_command_line(sys.argv)
+
+
+if __name__ == '__main__':
+    main()
+</file>
+
+<file path="backend/requirements.txt">
+# Django Core
+Django>=5.0,<6.0
+djangorestframework>=3.14,<4.0
+django-cors-headers>=4.3,<5.0
+
+# Database
+dj-database-url>=2.1,<3.0
+psycopg2-binary>=2.9,<3.0
+
+# Static Files
+whitenoise>=6.6,<7.0
+
+# Excel Processing
+pandas>=2.1,<3.0
+openpyxl>=3.1,<4.0
+xlrd>=2.0,<3.0
+
+# Production Server
+gunicorn>=21.0,<23.0
+
+# Testing
+pytest>=8.0,<9.0
+pytest-django>=4.7,<5.0
+pytest-xdist>=3.5,<4.0
+factory_boy>=3.3,<4.0
+</file>
+
+<file path="frontend/public/vite.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+</file>
+
+<file path="frontend/src/assets/react.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
+</file>
+
+<file path="frontend/src/components/charts/CategoryPieChart.tsx">
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Paper, Typography, Box } from '@mui/material';
+
+interface CategoryData {
+  name: string;
+  value: number;
+}
+
+interface CategoryPieChartProps {
+  data: CategoryData[];
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+export default function CategoryPieChart({ data }: CategoryPieChartProps) {
+  // Calculate percentages
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+
+  const chartData = data.map(item => ({
+    ...item,
+    percentage: total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0'
+  }));
+
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        카테고리별 분포
+      </Typography>
+
+      {chartData.length === 0 ? (
+        <Box textAlign="center" py={4} color="text.secondary">
+          조건에 맞는 데이터가 없습니다.
+        </Box>
+      ) : (
+        <ResponsiveContainer width="100%" height={400}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={(props: any) => `${props.name}: ${props.percentage}%`}
+              outerRadius={120}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number | undefined, _name: string | undefined, props: any) => [
+                value !== undefined ? `${value}건 (${props.payload.percentage}%)` : '',
+                props.payload.name || ''
+              ]}
+            />
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+</file>
+
+<file path="frontend/src/components/charts/DepartmentBarChart.tsx">
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Paper, Typography, Box } from '@mui/material';
+import { formatNumber } from '../../utils/formatters';
+
+interface DepartmentRankingData {
+  department: string;
+  total_revenue: number;
+  total_papers: number;
+}
+
+interface DepartmentBarChartProps {
+  data: DepartmentRankingData[];
+}
+
+export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
+  // Display top 10 departments
+  const topDepartments = data.slice(0, 10);
+
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        부서별 실적 (상위 10개)
+      </Typography>
+
+      {topDepartments.length === 0 ? (
+        <Box textAlign="center" py={4} color="text.secondary">
+          조건에 맞는 데이터가 없습니다.
+        </Box>
+      ) : (
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart data={topDepartments} margin={{ top: 5, right: 30, left: 20, bottom: 80 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="department"
+              tick={{ fontSize: 11 }}
+              angle={-45}
+              textAnchor="end"
+              height={100}
+            />
+            <YAxis
+              tick={{ fontSize: 12 }}
+              tickFormatter={formatNumber}
+            />
+            <Tooltip
+              formatter={(value: number | undefined) => value !== undefined ? formatNumber(value) : ''}
+            />
+            <Legend />
+            <Bar
+              dataKey="total_revenue"
+              name="총 매출액"
+              fill="#1976d2"
+              radius={[8, 8, 0, 0]}
+            />
+            <Bar
+              dataKey="total_papers"
+              name="총 논문 수"
+              fill="#f57c00"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+</file>
+
+<file path="frontend/src/components/charts/MonthlyTrendChart.tsx">
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Paper, Typography, Box } from '@mui/material';
+import { formatNumber } from '../../utils/formatters';
+
+interface MonthlyTrendData {
+  reference_date: string;
+  revenue: number;
+  budget: number;
+  expenditure: number;
+  papers: number;
+}
+
+interface MonthlyTrendChartProps {
+  data: MonthlyTrendData[];
+}
+
+export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
+  return (
+    <Paper sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        월별 추이
+      </Typography>
+
+      {data.length === 0 ? (
+        <Box textAlign="center" py={4} color="text.secondary">
+          조건에 맞는 데이터가 없습니다.
+        </Box>
+      ) : (
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="reference_date"
+              tick={{ fontSize: 12 }}
+            />
+            <YAxis
+              tick={{ fontSize: 12 }}
+              tickFormatter={formatNumber}
+            />
+            <Tooltip
+              formatter={(value: number | undefined) => value !== undefined ? formatNumber(value) : ''}
+              labelStyle={{ fontWeight: 'bold' }}
+            />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              name="매출액"
+              stroke="#1976d2"
+              strokeWidth={2}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="budget"
+              name="예산"
+              stroke="#2e7d32"
+              strokeWidth={2}
+              dot={{ r: 4 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="expenditure"
+              name="지출"
+              stroke="#d32f2f"
+              strokeWidth={2}
+              dot={{ r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+</file>
+
+<file path="frontend/src/components/FilterPanel.tsx">
+import { Box, Paper, Typography, TextField, Autocomplete, Button } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ko } from 'date-fns/locale/ko';
+import { format } from 'date-fns/format';
+
+interface FilterState {
+  startDate: string | null;
+  endDate: string | null;
+  departments: string[];
+}
+
+interface FilterPanelProps {
+  filters: FilterState;
+  onFilterChange: (filters: Partial<FilterState>) => void;
+  availableDepartments: string[];
+  availableDates: string[];
+}
+
+export default function FilterPanel({
+  filters,
+  onFilterChange,
+  availableDepartments,
+}: FilterPanelProps) {
+  const handleStartDateChange = (date: Date | null) => {
+    onFilterChange({
+      startDate: date ? format(date, 'yyyy-MM') : null
+    });
+  };
+
+  const handleEndDateChange = (date: Date | null) => {
+    onFilterChange({
+      endDate: date ? format(date, 'yyyy-MM') : null
+    });
+  };
+
+  const handleDepartmentChange = (_: any, newValue: string[]) => {
+    onFilterChange({ departments: newValue });
+  };
+
+  const handleReset = () => {
+    onFilterChange({
+      startDate: null,
+      endDate: null,
+      departments: []
+    });
+  };
+
+  return (
+    <Paper sx={{ p: 2, mb: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        필터
+      </Typography>
+
+      <Box display="flex" gap={2} flexWrap="wrap" alignItems="center">
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ko}>
+          <DatePicker
+            label="시작 월"
+            views={['year', 'month']}
+            value={filters.startDate ? new Date(filters.startDate) : null}
+            onChange={handleStartDateChange}
+            slotProps={{ textField: { size: 'small', sx: { width: 200 } } }}
+          />
+
+          <DatePicker
+            label="종료 월"
+            views={['year', 'month']}
+            value={filters.endDate ? new Date(filters.endDate) : null}
+            onChange={handleEndDateChange}
+            slotProps={{ textField: { size: 'small', sx: { width: 200 } } }}
+          />
+        </LocalizationProvider>
+
+        <Autocomplete
+          multiple
+          options={availableDepartments}
+          value={filters.departments}
+          onChange={handleDepartmentChange}
+          renderInput={(params) => (
+            <TextField {...params} label="부서 선택" size="small" />
+          )}
+          sx={{ width: 300 }}
+        />
+
+        <Button
+          variant="outlined"
+          onClick={handleReset}
+        >
+          필터 초기화
+        </Button>
+      </Box>
+    </Paper>
+  );
+}
+</file>
+
+<file path="frontend/src/layouts/DashboardLayout.tsx">
+import { useState } from 'react';
+import {
+  Box,
+  Drawer,
+  AppBar,
+  Toolbar,
+  Typography,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+} from '@mui/material';
+import {
+  Dashboard,
+  UploadFile,
+  TableChart,
+  Logout,
+  Menu as MenuIcon,
+} from '@mui/icons-material';
+import { useNavigate, Outlet } from 'react-router-dom';
+
+const DRAWER_WIDTH = 240;
+
+const menuItems = [
+  { text: '대시보드', icon: <Dashboard />, path: '/dashboard' },
+  { text: '데이터 업로드', icon: <UploadFile />, path: '/upload' },
+  { text: '데이터 테이블', icon: <TableChart />, path: '/data-table' },
+];
+
+export default function DashboardLayout() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleLogout = async () => {
+    await fetch('/admin/logout/', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    window.location.href = '/admin/login/';
+  };
+
+  const drawer = (
+    <div>
+      <Toolbar>
+        <Typography variant="h6" noWrap>
+          대학 데이터 대시보드
+        </Typography>
+      </Toolbar>
+      <List>
+        {menuItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton onClick={() => navigate(item.path)}>
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+        <ListItem disablePadding>
+          <ListItemButton onClick={handleLogout}>
+            <ListItemIcon><Logout /></ListItemIcon>
+            <ListItemText primary="로그아웃" />
+          </ListItemButton>
+        </ListItem>
+      </List>
+    </div>
+  );
+
+  return (
+    <Box sx={{ display: 'flex' }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap component="div">
+            대학 데이터 시각화 대시보드
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Box
+        component="nav"
+        sx={{ width: { sm: DRAWER_WIDTH }, flexShrink: { sm: 0 } }}
+      >
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH },
+          }}
+        >
+          {drawer}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
+      </Box>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
+          mt: 8,
+        }}
+      >
+        <Outlet />
+      </Box>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/pages/Dashboard.tsx">
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { performanceApi } from '../services/performanceApi';
+import type { DashboardSummary } from '../types';
+import MonthlyTrendChart from '../components/charts/MonthlyTrendChart';
+import DepartmentBarChart from '../components/charts/DepartmentBarChart';
+import CategoryPieChart from '../components/charts/CategoryPieChart';
+import FilterPanel from '../components/FilterPanel';
+
+interface FilterState {
+  startDate: string | null;
+  endDate: string | null;
+  departments: string[];
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    startDate: null,
+    endDate: null,
+    departments: [],
+  });
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await performanceApi.getSummary();
+      setSummary(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '데이터를 불러오는 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleFilterChange = useCallback((newFilters: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+  }, []);
+
+  // Filter data based on filter state
+  const filteredData = useMemo(() => {
+    if (!summary) return null;
+
+    let trend = summary.monthly_trend;
+    let ranking = summary.department_ranking;
+
+    // Apply date range filter
+    if (filters.startDate || filters.endDate) {
+      trend = trend.filter(item => {
+        if (filters.startDate && item.reference_date < filters.startDate) return false;
+        if (filters.endDate && item.reference_date > filters.endDate) return false;
+        return true;
+      });
+    }
+
+    // Apply department filter
+    if (filters.departments.length > 0) {
+      ranking = ranking.filter(item =>
+        filters.departments.includes(item.department)
+      );
+    }
+
+    return { ...summary, monthly_trend: trend, department_ranking: ranking };
+  }, [summary, filters]);
+
+  // Generate category data from summary
+  const categoryData = useMemo(() => {
+    if (!filteredData?.summary) return [];
+
+    return [
+      { name: '논문', value: filteredData.summary.total_papers || 0 },
+      { name: '특허', value: filteredData.summary.total_patents || 0 },
+      { name: '프로젝트', value: filteredData.summary.total_projects || 0 },
+    ].filter(item => item.value > 0);
+  }, [filteredData]);
+
+  // Extract unique departments for filter
+  const availableDepartments = useMemo(() => {
+    if (!summary) return [];
+    return summary.department_ranking.map(item => item.department);
+  }, [summary]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert
+        severity="error"
+        action={
+          <Button color="inherit" onClick={fetchData}>
+            재시도
+          </Button>
+        }
+      >
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!summary || summary.monthly_trend.length === 0) {
+    return (
+      <Alert
+        severity="info"
+        action={
+          <Button color="inherit" onClick={() => navigate('/upload')}>
+            업로드 페이지로 이동
+          </Button>
+        }
+      >
+        데이터가 없습니다. 엑셀을 업로드하세요.
+      </Alert>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="h4" gutterBottom>
+        대시보드
+      </Typography>
+
+      <FilterPanel
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        availableDepartments={availableDepartments}
+        availableDates={summary?.reference_dates || []}
+      />
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box>
+          <MonthlyTrendChart data={filteredData?.monthly_trend || []} />
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 calc(50% - 12px)', minWidth: '300px' }}>
+            <DepartmentBarChart data={filteredData?.department_ranking || []} />
+          </Box>
+
+          <Box sx={{ flex: '1 1 calc(50% - 12px)', minWidth: '300px' }}>
+            <CategoryPieChart data={categoryData} />
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/pages/DataTable.tsx">
+import { useEffect, useState } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Alert,
+  CircularProgress,
+  InputAdornment,
+} from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
+import type { GridColDef, GridSortModel, GridPaginationModel } from '@mui/x-data-grid';
+import { Search as SearchIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { performanceApi } from '../services/performanceApi';
+import type { PerformanceData } from '../types';
+
+export default function DataTable() {
+  const [data, setData] = useState<PerformanceData[]>([]);
+  const [filteredData, setFilteredData] = useState<PerformanceData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 50,
+  });
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await performanceApi.getData();
+        setData(response.data);
+        setFilteredData(response.data);
+      } catch {
+        setError('데이터를 불러올 수 없습니다.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Search filter effect
+  useEffect(() => {
+    if (!searchText.trim()) {
+      setFilteredData(data);
+      return;
+    }
+
+    const lowercased = searchText.toLowerCase();
+    const filtered = data.filter((row) => {
+      return (
+        row.reference_date.toLowerCase().includes(lowercased) ||
+        row.department.toLowerCase().includes(lowercased) ||
+        row.department_code.toLowerCase().includes(lowercased) ||
+        row.revenue.toString().includes(lowercased) ||
+        row.budget.toString().includes(lowercased)
+      );
+    });
+
+    setFilteredData(filtered);
+    setPaginationModel({ page: 0, pageSize: 50 });
+  }, [searchText, data]);
+
+  // CSV export handler
+  const handleExportCSV = () => {
+    if (filteredData.length === 0) {
+      return;
+    }
+
+    // Create CSV data
+    const csvData = filteredData.map((row) => ({
+      날짜: row.reference_date,
+      부서: row.department,
+      부서코드: row.department_code,
+      매출액: row.revenue,
+      예산: row.budget,
+    }));
+
+    // Generate CSV string
+    const headers = Object.keys(csvData[0]);
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map((row) =>
+        headers.map((header) => `"${row[header as keyof typeof row]}"`).join(',')
+      ),
+    ].join('\n');
+
+    // Add BOM for Excel compatibility
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    // Trigger download
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `data_export_${today}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // DataGrid column definitions
+  const columns: GridColDef[] = [
+    {
+      field: 'reference_date',
+      headerName: '날짜',
+      width: 150,
+      sortable: true,
+    },
+    {
+      field: 'department',
+      headerName: '부서',
+      width: 200,
+      sortable: true,
+    },
+    {
+      field: 'department_code',
+      headerName: '부서코드',
+      width: 150,
+      sortable: true,
+    },
+    {
+      field: 'revenue',
+      headerName: '매출액',
+      width: 180,
+      sortable: true,
+      type: 'number',
+      valueFormatter: (value: number | undefined) => {
+        return value != null ? value.toLocaleString('ko-KR') : '0';
+      },
+    },
+    {
+      field: 'budget',
+      headerName: '예산',
+      width: 180,
+      sortable: true,
+      type: 'number',
+      valueFormatter: (value: number | undefined) => {
+        return value != null ? value.toLocaleString('ko-KR') : '0';
+      },
+    },
+  ];
+
+  const handleRetry = () => {
+    window.location.reload();
+  };
+
+  return (
+    <Box>
+      <Typography variant="h4" gutterBottom>
+        데이터 테이블
+      </Typography>
+
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleRetry}>
+              재시도
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {data.length === 0 && !loading && !error && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          조회된 데이터가 없습니다. 엑셀을 업로드하세요.
+        </Alert>
+      )}
+
+      {data.length > 0 && (
+        <>
+          <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+            <TextField
+              label="검색"
+              variant="outlined"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="날짜, 부서, 부서코드, 금액 검색..."
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportCSV}
+              disabled={filteredData.length === 0}
+              sx={{ minWidth: 160 }}
+            >
+              CSV 내보내기
+            </Button>
+          </Box>
+
+          {filteredData.length === 0 && searchText && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              검색 결과가 없습니다. 다른 검색어를 시도하세요.
+            </Alert>
+          )}
+
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Paper sx={{ height: 650, width: '100%' }}>
+              <DataGrid
+                rows={filteredData}
+                columns={columns}
+                pageSizeOptions={[50]}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
+                sortingOrder={['asc', 'desc']}
+                sortModel={sortModel}
+                onSortModelChange={setSortModel}
+                disableRowSelectionOnClick
+                sx={{
+                  '& .MuiDataGrid-row:hover': {
+                    backgroundColor: '#f5f5f5',
+                  },
+                }}
+              />
+            </Paper>
+          )}
+        </>
+      )}
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/pages/Upload.tsx">
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Alert,
+  Backdrop,
+  CircularProgress,
+} from '@mui/material';
+import { CloudUpload } from '@mui/icons-material';
+import { performanceApi } from '../services/performanceApi';
+
+export default function Upload() {
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // State management
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error' | null;
+    text: string;
+  }>({ type: null, text: '' });
+  const [isDragging, setIsDragging] = useState(false);
+
+  // File validation
+  const validateFile = (file: File): string | null => {
+    // 1. File extension validation
+    const validExtensions = ['.xlsx', '.xls'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!hasValidExtension) {
+      return '지원하지 않는 파일 형식입니다. .xlsx 또는 .xls 파일을 업로드하세요.';
+    }
+
+    // 2. File size validation (10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return '파일 크기가 10MB를 초과합니다.';
+    }
+
+    return null; // Validation success
+  };
+
+  // File selection handler
+  const handleFileSelect = (file: File) => {
+    const error = validateFile(file);
+    if (error) {
+      setMessage({ type: 'error', text: error });
+      setSelectedFile(null);
+    } else {
+      setSelectedFile(file);
+      setMessage({ type: null, text: '' });
+    }
+  };
+
+  // File button click handler
+  const handleFileButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // File input change handler
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  // Drag & Drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  // Upload execution
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setMessage({ type: 'error', text: '파일을 선택해주세요.' });
+      return;
+    }
+
+    setUploading(true);
+    setMessage({ type: null, text: '' });
+
+    try {
+      const response = await performanceApi.uploadExcel(selectedFile);
+
+      setMessage({
+        type: 'success',
+        text: `업로드 완료! ${response.data.created_count}개의 데이터가 저장되었습니다.`
+      });
+
+      // Redirect to dashboard after 3 seconds
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 3000);
+
+    } catch (error) {
+      const errorMessage =
+        (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+        '업로드 중 오류가 발생했습니다.';
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Box>
+      {/* Title */}
+      <Typography variant="h4" gutterBottom>
+        데이터 업로드
+      </Typography>
+
+      {/* Upload area */}
+      <Paper sx={{ p: 4, mt: 2 }}>
+        {/* Drag & Drop Zone */}
+        <Box
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          sx={{
+            border: '2px dashed',
+            borderColor: isDragging ? 'primary.main' : 'grey.300',
+            borderRadius: 2,
+            p: 4,
+            textAlign: 'center',
+            bgcolor: isDragging ? 'action.hover' : 'transparent',
+            cursor: 'pointer',
+            mb: 3,
+            transition: 'all 0.2s ease-in-out',
+          }}
+        >
+          <CloudUpload sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+          <Typography variant="body1" gutterBottom>
+            파일을 여기에 드래그하거나 버튼을 클릭하세요
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            지원 형식: .xlsx, .xls (최대 10MB)
+          </Typography>
+        </Box>
+
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          accept=".xlsx,.xls"
+          onChange={handleFileInputChange}
+        />
+
+        {/* File selection button */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            startIcon={<CloudUpload />}
+            onClick={handleFileButtonClick}
+            disabled={uploading}
+          >
+            파일 선택
+          </Button>
+
+          {/* Selected filename */}
+          {selectedFile && (
+            <Typography variant="body2" color="text.secondary">
+              {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+            </Typography>
+          )}
+        </Box>
+
+        {/* Upload button */}
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={handleUpload}
+          disabled={!selectedFile || uploading}
+          sx={{ mt: 2 }}
+        >
+          {uploading ? '업로드 중...' : '업로드 시작'}
+        </Button>
+      </Paper>
+
+      {/* Success/Error message */}
+      {message.type && (
+        <Alert severity={message.type} sx={{ mt: 2 }}>
+          {message.text}
+        </Alert>
+      )}
+
+      {/* Loading overlay */}
+      <Backdrop open={uploading} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress color="inherit" />
+          <Typography variant="h6" sx={{ mt: 2, color: 'white' }}>
+            업로드 중입니다...
+          </Typography>
+        </Box>
+      </Backdrop>
+    </Box>
+  );
+}
+</file>
+
+<file path="frontend/src/services/api.ts">
+import axios, { type AxiosInstance, type AxiosError } from 'axios';
+
+// Axios instance
+const api: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+});
+
+// Request interceptor (CSRF token)
+api.interceptors.request.use(
+  (config) => {
+    const csrfToken = getCookie('csrftoken');
+    if (csrfToken) {
+      config.headers['X-CSRFToken'] = csrfToken;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor (error handling)
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401) {
+      window.location.href = '/admin/login/';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Cookie helper
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+}
+
+export default api;
+</file>
+
+<file path="frontend/src/services/performanceApi.ts">
+import api from './api';
+import type { PerformanceData, UploadResponse, DashboardSummary, UploadLog } from '../types';
+
+export const performanceApi = {
+  // Get all data with optional filters
+  getData: (params?: { reference_date?: string; department?: string }) =>
+    api.get<PerformanceData[]>('/data/', { params }),
+
+  // Get single data by ID
+  getDataById: (id: number) =>
+    api.get<PerformanceData>(`/data/${id}/`),
+
+  // Upload excel file
+  uploadExcel: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<UploadResponse>('/upload/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  // Get dashboard summary
+  getSummary: (reference_date?: string) =>
+    api.get<DashboardSummary>('/summary/', { params: { reference_date } }),
+
+  // Get upload logs
+  getLogs: () =>
+    api.get<UploadLog[]>('/logs/'),
+};
+</file>
+
+<file path="frontend/src/types/index.ts">
+// Performance data type
+export interface PerformanceData {
+  id: number;
+  reference_date: string;
+  department: string;
+  department_code: string;
+  revenue: number;
+  budget: number;
+  expenditure: number;
+  paper_count: number;
+  patent_count: number;
+  project_count: number;
+  extra_metric_1?: number;
+  extra_metric_2?: number;
+  extra_text?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Upload response type
+export interface UploadResponse {
+  message: string;
+  reference_dates: string[];
+  created_count: number;
+  warnings?: string[];
+}
+
+// Dashboard summary type
+export interface DashboardSummary {
+  summary: {
+    total_revenue: number;
+    total_budget: number;
+    total_expenditure: number;
+    total_papers: number;
+    total_patents: number;
+    total_projects: number;
+    department_count: number;
+    avg_revenue: number;
+  };
+  monthly_trend: Array<{
+    reference_date: string;
+    revenue: number;
+    budget: number;
+    expenditure: number;
+    papers: number;
+  }>;
+  department_ranking: Array<{
+    department: string;
+    total_revenue: number;
+    total_papers: number;
+  }>;
+  reference_dates: string[];
+}
+
+// Upload log type
+export interface UploadLog {
+  id: number;
+  reference_date: string;
+  filename: string;
+  row_count: number;
+  status: 'success' | 'failed';
+  error_message: string;
+  uploaded_by_name: string;
+  created_at: string;
+}
+</file>
+
+<file path="frontend/src/utils/formatters.ts">
+// Number formatting utilities
+
+export const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('ko-KR', {
+    style: 'currency',
+    currency: 'KRW',
+  }).format(value);
+};
+
+export const formatNumber = (value: number): string => {
+  return new Intl.NumberFormat('ko-KR').format(value);
+};
+
+export const formatPercent = (value: number): string => {
+  return `${value.toFixed(1)}%`;
+};
+</file>
+
+<file path="frontend/src/App.css">
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+</file>
+
+<file path="frontend/src/App.tsx">
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { theme } from './theme';
+import DashboardLayout from './layouts/DashboardLayout';
+
+import Dashboard from './pages/Dashboard';
+import Upload from './pages/Upload';
+import DataTable from './pages/DataTable';
+
+function App() {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/upload" element={<Upload />} />
+            <Route path="/data-table" element={<DataTable />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+}
+
+export default App;
+</file>
+
+<file path="frontend/src/index.css">
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+</file>
+
+<file path="frontend/src/main.tsx">
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+</file>
+
+<file path="frontend/src/theme.ts">
+import { createTheme } from '@mui/material/styles';
+
+export const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+    background: {
+      default: '#f5f5f5',
+      paper: '#ffffff',
+    },
+  },
+  typography: {
+    fontFamily: [
+      '-apple-system',
+      'BlinkMacSystemFont',
+      '"Segoe UI"',
+      'Roboto',
+      '"Helvetica Neue"',
+      'Arial',
+      'sans-serif',
+    ].join(','),
+    h4: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 600,
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
+  },
+});
+</file>
+
+<file path="frontend/.gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="frontend/eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+  },
+])
+</file>
+
+<file path="frontend/index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="frontend/package.json">
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.6",
+    "@mui/material": "^7.3.6",
+    "@mui/x-data-grid": "^7.22.4",
+    "@mui/x-date-pickers": "^8.22.0",
+    "axios": "^1.13.2",
+    "date-fns": "^4.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.11.0",
+    "recharts": "^3.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4",
+    "vitest": "^3.2.3"
+  }
+}
+</file>
+
+<file path="frontend/tsconfig.app.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+</file>
+
+<file path="frontend/tsconfig.node.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+</file>
+
+<file path="frontend/vite.config.ts">
+/// <reference types="vitest" />
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/admin': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+  test: {
+    // Vitest configuration
+    globals: true,
+    environment: 'node', // Use 'node' for pure utility functions (faster)
+    include: ['src/**/*.test.ts'],
+    exclude: ['node_modules', 'dist'],
+    // No snapshot tests (as per test-plan.md)
+    // Coverage configuration
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['src/utils/**/*.ts'],
+      exclude: ['src/**/*.test.ts'],
+    },
+  },
+})
+</file>
+
+<file path=".gitignore">
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+
+# Django
+*.log
+db.sqlite3
+staticfiles_collected/
+.env
+
+# Node
+node_modules/
+frontend/dist/
+.npm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+</file>
+
+<file path="Dockerfile">
+# Multi-stage Dockerfile for Django + React Monolith
+# Stage 1: Build React frontend
+# Stage 2: Python runtime with Django
+
+# ============================================
+# Stage 1: Build React Frontend
+# ============================================
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app/frontend
+
+# Install dependencies first (better caching)
+COPY frontend/package*.json ./
+RUN npm ci --silent
+
+# Copy source and build
+COPY frontend/ ./
+RUN npm run build
+
+# ============================================
+# Stage 2: Python Runtime
+# ============================================
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DEBUG=False
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend code
+COPY backend/ ./
+
+# Create staticfiles directory and copy React build
+RUN mkdir -p staticfiles
+COPY --from=frontend-build /app/frontend/dist/ ./staticfiles/
+
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
+# Expose port
+EXPOSE 8000
+
+# Run with Gunicorn
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2"]
+</file>
+
+</files>

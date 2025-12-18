@@ -17,3 +17,9 @@ xlrd>=2.0,<3.0
 
 # Production Server
 gunicorn>=21.0,<23.0
+
+# Testing
+pytest>=8.0,<9.0
+pytest-django>=4.7,<5.0
+pytest-xdist>=3.5,<4.0
+factory_boy>=3.3,<4.0

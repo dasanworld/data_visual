@@ -1,8 +1,13 @@
-import io
-from decimal import Decimal, InvalidOperation
+"""
+API Views for data visualization dashboard.
+
+Views handle HTTP request/response only.
+Business logic is delegated to services layer.
+"""
 
 import pandas as pd
 from django.db import transaction
+from django.db.models import Avg, Count, Sum
 from rest_framework import status, viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +16,7 @@ from rest_framework.views import APIView
 
 from .models import PerformanceData, UploadLog
 from .serializers import PerformanceDataSerializer, UploadLogSerializer
+from .services import ExcelParser
 
 
 class ExcelUploadView(APIView):
@@ -25,44 +31,16 @@ class ExcelUploadView(APIView):
     parser_classes = [MultiPartParser]
     permission_classes = [IsAuthenticated]
 
-    # 엑셀 컬럼명 → 모델 필드 매핑
-    COLUMN_MAPPING = {
-        '기준년월': 'reference_date',
-        '기준 년월': 'reference_date',
-        'reference_date': 'reference_date',
-        '부서명': 'department',
-        '부서': 'department',
-        'department': 'department',
-        '부서코드': 'department_code',
-        'department_code': 'department_code',
-        '매출액': 'revenue',
-        '매출': 'revenue',
-        'revenue': 'revenue',
-        '예산': 'budget',
-        'budget': 'budget',
-        '지출액': 'expenditure',
-        '지출': 'expenditure',
-        'expenditure': 'expenditure',
-        '논문수': 'paper_count',
-        '논문': 'paper_count',
-        'paper_count': 'paper_count',
-        '특허수': 'patent_count',
-        '특허': 'patent_count',
-        'patent_count': 'patent_count',
-        '프로젝트수': 'project_count',
-        '프로젝트': 'project_count',
-        'project_count': 'project_count',
-        '추가지표1': 'extra_metric_1',
-        '추가지표2': 'extra_metric_2',
-        '비고': 'extra_text',
-    }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parser = ExcelParser()
 
     def post(self, request):
         """
         엑셀 파일 업로드 처리
 
         1. 파일 유효성 검사
-        2. Pandas로 엑셀 파싱
+        2. ExcelParser로 엑셀 파싱
         3. 기준 년월 추출
         4. Atomic Transaction 내에서:
            - 해당 년월 기존 데이터 삭제
@@ -86,53 +64,18 @@ class ExcelUploadView(APIView):
             )
 
         try:
-            # 엑셀 파일 읽기
+            # 엑셀 파일 읽기 및 파싱 (서비스 레이어 사용)
             file_content = file.read()
-            df = pd.read_excel(io.BytesIO(file_content))
+            df = self.parser.read_excel(file_content)
 
-            if df.empty:
-                return Response(
-                    {'error': '엑셀 파일에 데이터가 없습니다.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # 데이터 유효성 검증
+            self.parser.validate_dataframe(df)
 
-            # 컬럼명 정규화 (공백 제거, 소문자 변환하지 않음)
-            df.columns = df.columns.str.strip()
+            # 기준 년월 추출
+            reference_dates = self.parser.extract_reference_dates(df)
 
-            # 컬럼 매핑 적용
-            mapped_columns = {}
-            for col in df.columns:
-                if col in self.COLUMN_MAPPING:
-                    mapped_columns[col] = self.COLUMN_MAPPING[col]
-
-            df = df.rename(columns=mapped_columns)
-
-            # 기준 년월 필드 확인
-            if 'reference_date' not in df.columns:
-                return Response(
-                    {'error': "'기준년월' 또는 'reference_date' 컬럼이 필요합니다."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # 기준 년월 추출 (첫 번째 유효한 값 사용)
-            reference_dates = df['reference_date'].dropna().unique()
-            if len(reference_dates) == 0:
-                return Response(
-                    {'error': '기준 년월 데이터가 없습니다.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # 데이터 변환 및 저장
-            performance_objects = []
-            errors = []
-
-            for idx, row in df.iterrows():
-                try:
-                    obj_data = self._parse_row(row)
-                    if obj_data:
-                        performance_objects.append(PerformanceData(**obj_data))
-                except Exception as e:
-                    errors.append(f"행 {idx + 2}: {str(e)}")
+            # 데이터 변환
+            performance_objects, errors = self.parser.parse_dataframe(df)
 
             if not performance_objects:
                 return Response(
@@ -144,8 +87,8 @@ class ExcelUploadView(APIView):
             with transaction.atomic():
                 # 해당 기준 년월의 기존 데이터 삭제
                 for ref_date in reference_dates:
-                    ref_date_str = self._normalize_date(ref_date)
-                    deleted_count, _ = PerformanceData.objects.filter(
+                    ref_date_str = ExcelParser.normalize_date(ref_date)
+                    PerformanceData.objects.filter(
                         reference_date=ref_date_str
                     ).delete()
 
@@ -171,6 +114,11 @@ class ExcelUploadView(APIView):
                 'warnings': errors if errors else None
             }, status=status.HTTP_201_CREATED)
 
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except pd.errors.EmptyDataError:
             return Response(
                 {'error': '엑셀 파일이 비어있습니다.'},
@@ -190,82 +138,6 @@ class ExcelUploadView(APIView):
                 {'error': f'파일 처리 중 오류가 발생했습니다: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _parse_row(self, row):
-        """
-        DataFrame 행을 모델 필드 딕셔너리로 변환
-        """
-        if pd.isna(row.get('reference_date')):
-            return None
-
-        data = {
-            'reference_date': self._normalize_date(row.get('reference_date')),
-            'department': str(row.get('department', '')).strip() if pd.notna(row.get('department')) else '',
-            'department_code': str(row.get('department_code', '')).strip() if pd.notna(row.get('department_code')) else '',
-            'revenue': self._to_decimal(row.get('revenue', 0)),
-            'budget': self._to_decimal(row.get('budget', 0)),
-            'expenditure': self._to_decimal(row.get('expenditure', 0)),
-            'paper_count': self._to_int(row.get('paper_count', 0)),
-            'patent_count': self._to_int(row.get('patent_count', 0)),
-            'project_count': self._to_int(row.get('project_count', 0)),
-            'extra_text': str(row.get('extra_text', '')).strip() if pd.notna(row.get('extra_text')) else '',
-        }
-
-        # 선택적 필드
-        if 'extra_metric_1' in row and pd.notna(row.get('extra_metric_1')):
-            data['extra_metric_1'] = self._to_decimal(row.get('extra_metric_1'))
-        if 'extra_metric_2' in row and pd.notna(row.get('extra_metric_2')):
-            data['extra_metric_2'] = self._to_decimal(row.get('extra_metric_2'))
-
-        return data
-
-    def _normalize_date(self, value):
-        """
-        기준 년월을 YYYY-MM 형식으로 정규화
-        """
-        if pd.isna(value):
-            return ''
-
-        value_str = str(value).strip()
-
-        # 이미 YYYY-MM 형식인 경우
-        if len(value_str) == 7 and value_str[4] == '-':
-            return value_str
-
-        # YYYYMM 형식인 경우
-        if len(value_str) == 6 and value_str.isdigit():
-            return f"{value_str[:4]}-{value_str[4:]}"
-
-        # YYYY/MM 형식인 경우
-        if len(value_str) == 7 and value_str[4] == '/':
-            return f"{value_str[:4]}-{value_str[5:]}"
-
-        # datetime 객체인 경우
-        try:
-            if hasattr(value, 'strftime'):
-                return value.strftime('%Y-%m')
-        except Exception:
-            pass
-
-        return value_str[:7] if len(value_str) >= 7 else value_str
-
-    def _to_decimal(self, value, default=0):
-        """숫자를 Decimal로 변환"""
-        if pd.isna(value):
-            return Decimal(default)
-        try:
-            return Decimal(str(value).replace(',', ''))
-        except (InvalidOperation, ValueError):
-            return Decimal(default)
-
-    def _to_int(self, value, default=0):
-        """숫자를 정수로 변환"""
-        if pd.isna(value):
-            return default
-        try:
-            return int(float(str(value).replace(',', '')))
-        except (ValueError, TypeError):
-            return default
 
 
 class PerformanceDataViewSet(viewsets.ModelViewSet):
@@ -325,8 +197,6 @@ class DashboardSummaryView(APIView):
             queryset = queryset.filter(reference_date=reference_date)
 
         # 집계 데이터
-        from django.db.models import Sum, Count, Avg
-
         summary = queryset.aggregate(
             total_revenue=Sum('revenue'),
             total_budget=Sum('budget'),
