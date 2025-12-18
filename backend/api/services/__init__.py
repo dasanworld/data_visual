@@ -6,4 +6,4 @@ Separates business logic from views for better testability.
 
 from .excel_parser import ExcelParser
 
-__all__ = ['ExcelParser']
+__all__ = ["ExcelParser"]

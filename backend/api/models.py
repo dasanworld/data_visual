@@ -10,10 +10,7 @@ class PerformanceData(models.Model):
 
     # 기준 년월 (필수) - 데이터 교체 시 이 필드 기준으로 DELETE
     reference_date = models.CharField(
-        max_length=7,  # YYYY-MM 형식
-        db_index=True,
-        verbose_name="기준 년월",
-        help_text="YYYY-MM 형식 (예: 2024-05)"
+        max_length=7, db_index=True, verbose_name="기준 년월", help_text="YYYY-MM 형식 (예: 2024-05)"  # YYYY-MM 형식
     )
 
     # 부서/조직 정보
@@ -98,11 +95,11 @@ class PerformanceData(models.Model):
     class Meta:
         verbose_name = "실적 데이터"
         verbose_name_plural = "실적 데이터"
-        ordering = ['-reference_date', 'department']
+        ordering = ["-reference_date", "department"]
         indexes = [
-            models.Index(fields=['reference_date']),
-            models.Index(fields=['department']),
-            models.Index(fields=['reference_date', 'department']),
+            models.Index(fields=["reference_date"]),
+            models.Index(fields=["department"]),
+            models.Index(fields=["reference_date", "department"]),
         ]
 
     def __str__(self):
@@ -129,10 +126,10 @@ class UploadLog(models.Model):
     status = models.CharField(
         max_length=20,
         choices=[
-            ('success', '성공'),
-            ('failed', '실패'),
+            ("success", "성공"),
+            ("failed", "실패"),
         ],
-        default='success',
+        default="success",
         verbose_name="상태"
     )
     error_message = models.TextField(
@@ -141,7 +138,7 @@ class UploadLog(models.Model):
         verbose_name="에러 메시지"
     )
     uploaded_by = models.ForeignKey(
-        'auth.User',
+        "auth.User",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -155,7 +152,7 @@ class UploadLog(models.Model):
     class Meta:
         verbose_name = "업로드 이력"
         verbose_name_plural = "업로드 이력"
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.created_at.strftime('%Y-%m-%d %H:%M')} - {self.filename}"

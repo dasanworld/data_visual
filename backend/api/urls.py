@@ -9,16 +9,14 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register(r'data', PerformanceDataViewSet, basename='performance-data')
-router.register(r'logs', UploadLogViewSet, basename='upload-logs')
+router.register(r"data", PerformanceDataViewSet, basename="performance-data")
+router.register(r"logs", UploadLogViewSet, basename="upload-logs")
 
 urlpatterns = [
     # 엑셀 업로드 엔드포인트
-    path('upload/', ExcelUploadView.as_view(), name='excel-upload'),
-
+    path("upload/", ExcelUploadView.as_view(), name="excel-upload"),
     # 대시보드 요약 데이터
-    path('summary/', DashboardSummaryView.as_view(), name='dashboard-summary'),
-
+    path("summary/", DashboardSummaryView.as_view(), name="dashboard-summary"),
     # ViewSet 라우터
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]
