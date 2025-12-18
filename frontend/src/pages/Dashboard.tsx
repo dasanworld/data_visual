@@ -26,8 +26,14 @@ export default function Dashboard() {
       setError(null);
       const response = await performanceApi.getSummary();
       setSummary(response.data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '데이터를 불러오는 중 오류가 발생했습니다.');
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "response" in err
+            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+            : "데이터를 불러오는 중 오류가 발생했습니다.";
+      setError(errorMessage || "데이터를 불러오는 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }

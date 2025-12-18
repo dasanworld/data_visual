@@ -1,9 +1,10 @@
-import { Box, Paper, Typography, TextField, Autocomplete, Button } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { ko } from 'date-fns/locale/ko';
-import { format } from 'date-fns/format';
+import { SyntheticEvent } from "react";
+import { Box, Paper, Typography, TextField, Autocomplete, Button } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { ko } from "date-fns/locale/ko";
+import { format } from "date-fns/format";
 
 interface FilterState {
   startDate: string | null;
@@ -35,7 +36,7 @@ export default function FilterPanel({
     });
   };
 
-  const handleDepartmentChange = (_: any, newValue: string[]) => {
+  const handleDepartmentChange = (_: SyntheticEvent, newValue: string[]) => {
     onFilterChange({ departments: newValue });
   };
 
