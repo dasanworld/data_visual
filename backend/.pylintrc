@@ -1,0 +1,30 @@
+[MASTER]
+ignore=.venv,venv,migrations,__pycache__,.git
+
+[MESSAGES CONTROL]
+disable=
+    C0111,  # missing-docstring
+    C0103,  # invalid-name
+    R0903,  # too-few-public-methods
+    W0212,  # protected-access
+    C0330,  # bad-continuation
+    R0801,  # duplicate-code
+
+[FORMAT]
+max-line-length=127
+indent-string='    '
+
+[DESIGN]
+max-args=8
+max-locals=20
+max-returns=6
+max-branches=15
+
+[SIMILARITIES]
+min-similarity-lines=6
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,id,pk,db,e

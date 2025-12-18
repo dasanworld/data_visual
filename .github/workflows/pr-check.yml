@@ -1,0 +1,361 @@
+name: PR Review & Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: write
+
+jobs:
+  # PR 제목 형식 검증 (Conventional Commits)
+  pr-title-check:
+    name: PR Title Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR Title Format
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            test
+            chore
+            perf
+            ci
+            build
+            revert
+          requireScope: false
+          subjectPattern: ^[A-Z].+$
+          subjectPatternError: |
+            제목은 대문자로 시작해야 합니다.
+            예: "feat: Add new feature" 또는 "fix: Fix bug"
+
+  # 백엔드 테스트 및 린트
+  backend-checks:
+    name: Backend Tests & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint
+        id: lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run Tests
+        id: test
+        run: npm run test
+        continue-on-error: true
+
+      - name: Run Build
+        id: build
+        run: npm run build
+        continue-on-error: true
+
+      - name: Check Results
+        if: steps.lint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.build.outcome == 'failure'
+        run: |
+          echo "Backend checks failed!"
+          exit 1
+
+  # 프론트엔드 테스트 및 린트
+  frontend-checks:
+    name: Frontend Tests & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint
+        id: lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run Type Check
+        id: typecheck
+        run: npm run typecheck
+        continue-on-error: true
+
+      - name: Run Build
+        id: build
+        run: npm run build
+        continue-on-error: true
+
+      - name: Check Results
+        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.build.outcome == 'failure'
+        run: |
+          echo "Frontend checks failed!"
+          exit 1
+
+  # 파일 변경사항 분석 및 PR 요약
+  pr-analysis:
+    name: PR Analysis & Summary
+    runs-on: ubuntu-latest
+    needs: [pr-title-check]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze Changes
+        id: analyze
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            // 파일 분류
+            const backendFiles = files.filter(f => f.filename.startsWith('backend/'));
+            const frontendFiles = files.filter(f => f.filename.startsWith('frontend/'));
+            const docsFiles = files.filter(f => f.filename.startsWith('docs/'));
+            const configFiles = files.filter(f =>
+              f.filename.includes('.yml') ||
+              f.filename.includes('.yaml') ||
+              f.filename.includes('.json') ||
+              f.filename.includes('Dockerfile')
+            );
+            const e2eFiles = files.filter(f => f.filename.startsWith('e2e/'));
+
+            // 통계 계산
+            const totalAdditions = files.reduce((sum, f) => sum + f.additions, 0);
+            const totalDeletions = files.reduce((sum, f) => sum + f.deletions, 0);
+
+            // 코멘트 생성
+            let comment = '## 📋 PR 분석 리포트\n\n';
+            comment += `**제목**: ${pr.title}\n`;
+            comment += `**작성자**: @${pr.user.login}\n`;
+            comment += `**변경사항**: ${pr.changed_files}개 파일 (+ ${totalAdditions} / - ${totalDeletions})\n\n`;
+
+            // 변경 파일 카테고리별 표시
+            if (backendFiles.length > 0) {
+              comment += '### 🔧 백엔드 변경사항\n';
+              backendFiles.forEach(file => {
+                const icon = file.status === 'added' ? '✨' : file.status === 'removed' ? '🗑️' : '📝';
+                comment += `- ${icon} \`${file.filename}\` (+${file.additions}/-${file.deletions})\n`;
+              });
+              comment += '\n';
+            }
+
+            if (frontendFiles.length > 0) {
+              comment += '### 🎨 프론트엔드 변경사항\n';
+              frontendFiles.forEach(file => {
+                const icon = file.status === 'added' ? '✨' : file.status === 'removed' ? '🗑️' : '📝';
+                comment += `- ${icon} \`${file.filename}\` (+${file.additions}/-${file.deletions})\n`;
+              });
+              comment += '\n';
+            }
+
+            if (e2eFiles.length > 0) {
+              comment += '### 🧪 E2E 테스트 변경사항\n';
+              e2eFiles.forEach(file => {
+                const icon = file.status === 'added' ? '✨' : file.status === 'removed' ? '🗑️' : '📝';
+                comment += `- ${icon} \`${file.filename}\` (+${file.additions}/-${file.deletions})\n`;
+              });
+              comment += '\n';
+            }
+
+            if (docsFiles.length > 0) {
+              comment += '### 📚 문서 변경사항\n';
+              docsFiles.forEach(file => {
+                const icon = file.status === 'added' ? '✨' : file.status === 'removed' ? '🗑️' : '📝';
+                comment += `- ${icon} \`${file.filename}\` (+${file.additions}/-${file.deletions})\n`;
+              });
+              comment += '\n';
+            }
+
+            if (configFiles.length > 0) {
+              comment += '### ⚙️ 설정 파일 변경사항\n';
+              configFiles.forEach(file => {
+                const icon = file.status === 'added' ? '✨' : file.status === 'removed' ? '🗑️' : '📝';
+                comment += `- ${icon} \`${file.filename}\` (+${file.additions}/-${file.deletions})\n`;
+              });
+              comment += '\n';
+            }
+
+            // 체크리스트
+            comment += '### ✅ 병합 전 체크리스트\n';
+            comment += '- [ ] 모든 테스트 통과\n';
+            comment += '- [ ] 린트 통과\n';
+            comment += '- [ ] 타입 체크 통과\n';
+            comment += '- [ ] 빌드 성공\n';
+            comment += '- [ ] 코드 리뷰 완료\n';
+            comment += '- [ ] 관련 문서 업데이트됨\n\n';
+
+            // 권장사항
+            comment += '### 💡 권장사항\n';
+
+            if (backendFiles.length > 0 && e2eFiles.length === 0) {
+              comment += '- ⚠️ 백엔드 변경사항이 있지만 E2E 테스트가 업데이트되지 않았습니다.\n';
+            }
+
+            if (frontendFiles.length > 0 && e2eFiles.length === 0) {
+              comment += '- ⚠️ 프론트엔드 변경사항이 있지만 E2E 테스트가 업데이트되지 않았습니다.\n';
+            }
+
+            if (totalAdditions > 500) {
+              comment += '- ⚠️ 큰 변경사항입니다. 작은 PR로 나누는 것을 고려해보세요.\n';
+            }
+
+            if (docsFiles.length === 0 && (backendFiles.length > 0 || frontendFiles.length > 0)) {
+              comment += '- 📝 새로운 기능이나 변경사항이 있다면 문서 업데이트를 고려해보세요.\n';
+            }
+
+            comment += '\n---\n';
+            comment += '*이 코멘트는 자동으로 생성되었습니다.*';
+
+            // 기존 봇 코멘트 찾기
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('📋 PR 분석 리포트')
+            );
+
+            if (botComment) {
+              // 기존 코멘트 업데이트
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment,
+              });
+            } else {
+              // 새 코멘트 생성
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment,
+              });
+            }
+
+  # 커밋 메시지 검증
+  commit-message-check:
+    name: Commit Message Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Commit Messages
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: '.github/commitlint.config.js'
+          failOnWarnings: false
+        continue-on-error: true
+
+  # 테스트 결과 요약
+  test-summary:
+    name: Test Results Summary
+    runs-on: ubuntu-latest
+    needs: [backend-checks, frontend-checks]
+    if: always()
+    steps:
+      - name: Create Test Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const backendResult = '${{ needs.backend-checks.result }}';
+            const frontendResult = '${{ needs.frontend-checks.result }}';
+
+            let summary = '## 🧪 테스트 결과 요약\n\n';
+            summary += '| 영역 | 상태 |\n';
+            summary += '|------|------|\n';
+            summary += `| 백엔드 | ${backendResult === 'success' ? '✅ 통과' : '❌ 실패'} |\n`;
+            summary += `| 프론트엔드 | ${frontendResult === 'success' ? '✅ 통과' : '❌ 실패'} |\n`;
+
+            if (backendResult !== 'success' || frontendResult !== 'success') {
+              summary += '\n### ⚠️ 주의사항\n';
+              summary += '일부 체크가 실패했습니다. 자세한 내용은 위의 워크플로우 로그를 확인하세요.\n';
+            } else {
+              summary += '\n### ✅ 모든 체크 통과\n';
+              summary += '리뷰어의 승인을 받은 후 병합할 수 있습니다.\n';
+            }
+
+            // 기존 요약 코멘트 찾기
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const summaryComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('🧪 테스트 결과 요약')
+            );
+
+            if (summaryComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: summaryComment.id,
+                body: summary,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary,
+              });
+            }
+
+  # 모든 체크 완료 확인
+  all-checks-passed:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [pr-title-check, backend-checks, frontend-checks, pr-analysis]
+    steps:
+      - name: All checks passed
+        run: echo "All checks passed successfully!"
