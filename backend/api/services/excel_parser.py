@@ -6,6 +6,7 @@ Separated from views for better testability.
 """
 
 import io
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
@@ -26,14 +27,28 @@ class ExcelParser:
 
     # Excel column name to model field mapping
     COLUMN_MAPPING = {
+        # Date columns - all map to reference_date
         '기준년월': 'reference_date',
         '기준 년월': 'reference_date',
         'reference_date': 'reference_date',
+        '평가년도': 'reference_date',  # Department KPI evaluation year
+        '게재일': 'reference_date',  # Publication date
+        '집행일자': 'reference_date',  # Research project execution date
+        '날짜': 'reference_date',  # Generic date
+
+        # Department columns
         '부서명': 'department',
         '부서': 'department',
         'department': 'department',
+        '단과대학': 'department',  # College/Faculty
+        '학과': 'department',  # Department
+        '소속학과': 'department',  # Affiliated department
+
+        # Department code
         '부서코드': 'department_code',
         'department_code': 'department_code',
+
+        # Revenue/Budget/Expenditure columns
         '매출액': 'revenue',
         '매출': 'revenue',
         'revenue': 'revenue',
@@ -42,6 +57,10 @@ class ExcelParser:
         '지출액': 'expenditure',
         '지출': 'expenditure',
         'expenditure': 'expenditure',
+        '집행금액': 'expenditure',  # Research project execution amount
+        '총연구비': 'budget',  # Total research budget
+
+        # Paper/Patent/Project counts
         '논문수': 'paper_count',
         '논문': 'paper_count',
         'paper_count': 'paper_count',
@@ -51,8 +70,16 @@ class ExcelParser:
         '프로젝트수': 'project_count',
         '프로젝트': 'project_count',
         'project_count': 'project_count',
+
+        # Extra metrics
         '추가지표1': 'extra_metric_1',
         '추가지표2': 'extra_metric_2',
+        '교육지표': 'extra_metric_1',  # Department KPI education metric
+        '연구지표': 'extra_metric_2',  # Department KPI research metric
+        '지표1': 'extra_metric_1',  # Generic metric 1
+        '지표2': 'extra_metric_2',  # Generic metric 2
+
+        # Text fields
         '비고': 'extra_text',
     }
 
@@ -78,11 +105,42 @@ class ExcelParser:
         # Normalize column names (strip whitespace)
         df.columns = df.columns.str.strip()
 
-        # Apply column mapping
+        # Apply column mapping with priority handling
+        # When multiple columns map to the same target, prioritize and merge them
         mapped_columns = {}
+        target_to_sources = {}  # Track which sources map to each target
+
         for col in df.columns:
             if col in self.COLUMN_MAPPING:
-                mapped_columns[col] = self.COLUMN_MAPPING[col]
+                target = self.COLUMN_MAPPING[col]
+                if target not in target_to_sources:
+                    target_to_sources[target] = []
+                target_to_sources[target].append(col)
+
+        # For each target with multiple sources, choose priority source
+        for target, sources in target_to_sources.items():
+            if len(sources) == 1:
+                # Only one source, straightforward mapping
+                mapped_columns[sources[0]] = target
+            else:
+                # Multiple sources, apply priority logic
+                if target == 'department':
+                    # Priority: 단과대학 > 학과 > 소속학과 > 부서명 > 부서
+                    priority = ['단과대학', '학과', '소속학과', '부서명', '부서', 'department']
+                    for pref in priority:
+                        if pref in sources:
+                            mapped_columns[pref] = target
+                            break
+                elif target == 'reference_date':
+                    # Priority: 기준년월 > 평가년도 > 게재일 > 집행일자 > 날짜
+                    priority = ['기준년월', '기준 년월', 'reference_date', '평가년도', '게재일', '집행일자', '날짜']
+                    for pref in priority:
+                        if pref in sources:
+                            mapped_columns[pref] = target
+                            break
+                else:
+                    # Default: use first source
+                    mapped_columns[sources[0]] = target
 
         df = df.rename(columns=mapped_columns)
 
@@ -183,8 +241,13 @@ class ExcelParser:
 
         Supports formats:
             - YYYY-MM (passthrough)
+            - YYYY.MM, YYYY.M
+            - YYYY/MM, YYYY/M
+            - YYYY-MM, YYYY-M
+            - YYYY. MM (with space)
             - YYYYMM (numeric)
-            - YYYY/MM
+            - YYYY (year only, defaults to January)
+            - YYYY-MM-DD (full date, extracts year-month)
             - datetime objects
             - Excel serial date numbers
 
@@ -197,39 +260,60 @@ class ExcelParser:
         Examples:
             >>> ExcelParser.normalize_date('2024-05')
             '2024-05'
+            >>> ExcelParser.normalize_date('2024.05')
+            '2024-05'
+            >>> ExcelParser.normalize_date('2024/5')
+            '2024-05'
+            >>> ExcelParser.normalize_date('2024. 5')
+            '2024-05'
             >>> ExcelParser.normalize_date('202405')
             '2024-05'
-            >>> ExcelParser.normalize_date(202405)
-            '2024-05'
-            >>> ExcelParser.normalize_date('2024/05')
+            >>> ExcelParser.normalize_date('2024')
+            '2024-01'
+            >>> ExcelParser.normalize_date('2024-05-15')
             '2024-05'
         """
         if pd.isna(value):
             return ''
 
-        value_str = str(value).strip()
+        val_str = str(value).strip()
 
-        # Already YYYY-MM format
-        if len(value_str) == 7 and value_str[4] == '-':
-            return value_str
+        # YYYY-MM-DD format (full date) - extract year and month
+        # Matches: 2024-05-15, 2024/05/15, 2024.05.15
+        match_full_date = re.match(r'^(\d{4})[./\-](\d{1,2})[./\-]\d{1,2}$', val_str)
+        if match_full_date:
+            year, month = match_full_date.groups()
+            return f"{year}-{int(month):02d}"
 
-        # YYYYMM format (string or int)
-        if len(value_str) == 6 and value_str.isdigit():
-            return f"{value_str[:4]}-{value_str[4:]}"
+        # Regex pattern for YYYY[separator]MM formats (including space)
+        # Matches: 2024.05, 2024/5, 2024-5, 2024. 5 (with space)
+        match = re.match(r'^(\d{4})[./\-\s]+(\d{1,2})$', val_str)
+        if match:
+            year, month = match.groups()
+            return f"{year}-{int(month):02d}"
 
-        # Handle float representation of YYYYMM (e.g., 202405.0)
-        if '.' in value_str:
+        # YYYY only (year only) - default to January
+        # Matches: 2024, 2023
+        if len(val_str) == 4 and val_str.isdigit():
+            return f"{val_str}-01"
+
+        # Handle float representation of YYYY (e.g., 2024.0)
+        if '.' in val_str:
             try:
-                int_value = int(float(value_str))
+                int_value = int(float(val_str))
                 int_str = str(int_value)
+                # Year only
+                if len(int_str) == 4:
+                    return f"{int_str}-01"
+                # YYYYMM format
                 if len(int_str) == 6:
                     return f"{int_str[:4]}-{int_str[4:]}"
             except (ValueError, TypeError):
                 pass
 
-        # YYYY/MM format
-        if len(value_str) == 7 and value_str[4] == '/':
-            return f"{value_str[:4]}-{value_str[5:]}"
+        # YYYYMM format (string or int)
+        if len(val_str) == 6 and val_str.isdigit():
+            return f"{val_str[:4]}-{val_str[4:]}"
 
         # datetime object
         try:
@@ -246,8 +330,8 @@ class ExcelParser:
         except Exception:
             pass
 
-        # Fallback: truncate to 7 characters
-        return value_str[:7] if len(value_str) >= 7 else value_str
+        # Fallback: return as-is
+        return val_str
 
     @staticmethod
     def to_decimal(value: Any, default: int = 0) -> Decimal:

@@ -60,7 +60,7 @@ test.describe('Smoke Test: Core User Journey', () => {
       await page.goto('/upload');
 
       // Verify upload page is displayed
-      await expect(page.locator('text=데이터 업로드')).toBeVisible();
+      await expect(page.getByRole('heading', { name: '데이터 업로드' })).toBeVisible();
 
       // Verify upload area is visible
       await expect(page.locator('text=파일을 여기에 드래그')).toBeVisible();
@@ -101,7 +101,7 @@ test.describe('Smoke Test: Core User Journey', () => {
       }
 
       // Wait for dashboard to load
-      await expect(page.locator('text=대시보드')).toBeVisible();
+      await expect(page.getByRole('heading', { name: '대시보드', level: 4 })).toBeVisible();
 
       // Verify charts are rendered (at least one chart should be visible)
       // Check for Recharts SVG elements or chart containers
@@ -150,14 +150,14 @@ test.describe('Smoke Test: Navigation', () => {
   test('should navigate between main pages', async ({ page }) => {
     // Navigate to dashboard
     await page.goto('/dashboard');
-    await expect(page.locator('text=대시보드')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '대시보드', level: 4 })).toBeVisible();
 
     // Navigate to upload page via sidebar or URL
     await page.goto('/upload');
-    await expect(page.locator('text=데이터 업로드')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '데이터 업로드' })).toBeVisible();
 
     // Navigate to data table page
     await page.goto('/data-table');
-    await expect(page.locator('text=데이터 테이블')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '데이터 테이블' })).toBeVisible();
   });
 });

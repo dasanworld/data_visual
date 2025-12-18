@@ -7,12 +7,7 @@ import MonthlyTrendChart from '../components/charts/MonthlyTrendChart';
 import DepartmentBarChart from '../components/charts/DepartmentBarChart';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
 import FilterPanel from '../components/FilterPanel';
-
-interface FilterState {
-  startDate: string | null;
-  endDate: string | null;
-  departments: string[];
-}
+import { applyFilters, type FilterState } from '../utils/dashboardHelpers';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -46,30 +41,9 @@ export default function Dashboard() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   }, []);
 
-  // Filter data based on filter state
+  // Filter data based on filter state using extracted pure function
   const filteredData = useMemo(() => {
-    if (!summary) return null;
-
-    let trend = summary.monthly_trend;
-    let ranking = summary.department_ranking;
-
-    // Apply date range filter
-    if (filters.startDate || filters.endDate) {
-      trend = trend.filter(item => {
-        if (filters.startDate && item.reference_date < filters.startDate) return false;
-        if (filters.endDate && item.reference_date > filters.endDate) return false;
-        return true;
-      });
-    }
-
-    // Apply department filter
-    if (filters.departments.length > 0) {
-      ranking = ranking.filter(item =>
-        filters.departments.includes(item.department)
-      );
-    }
-
-    return { ...summary, monthly_trend: trend, department_ranking: ranking };
+    return applyFilters(summary, filters);
   }, [summary, filters]);
 
   // Generate category data from summary

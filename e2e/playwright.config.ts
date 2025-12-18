@@ -15,8 +15,8 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
 
   use: {
-    // Base URL for Django server
-    baseURL: process.env.BASE_URL || 'http://localhost:8000',
+    // Base URL for Vite dev server (proxies to Django)
+    baseURL: process.env.BASE_URL || 'http://localhost:5173',
 
     // Collect trace on first retry
     trace: 'on-first-retry',
