@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button, Grid } from '@mui/material';
 import {
   TrendingUp,
@@ -20,7 +20,7 @@ import ResearchTrendChart from '../components/charts/ResearchTrendChart';
 import TopDepartmentsCard from '../components/charts/TopDepartmentsCard';
 import SummaryCard from '../components/cards/SummaryCard';
 import FilterPanel from '../components/FilterPanel';
-import { applyFilters, type FilterState } from '../utils/dashboardHelpers';
+import type { FilterState } from '../utils/dashboardHelpers';
 
 const formatCurrency = (value: number) => {
   if (value >= 100000000) {
@@ -35,6 +35,7 @@ const formatCurrency = (value: number) => {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [allDepartments, setAllDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
@@ -42,13 +43,41 @@ export default function Dashboard() {
     endDate: null,
     departments: [],
   });
+  const isInitialMount = useRef(true);
 
-  const fetchData = useCallback(async () => {
+  // Fetch data with filters from API
+  const fetchData = useCallback(async (filterParams?: FilterState) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await performanceApi.getSummary();
+
+      // Build API params
+      const params: {
+        departments?: string;
+        start_date?: string;
+        end_date?: string;
+      } = {};
+
+      if (filterParams?.departments && filterParams.departments.length > 0) {
+        params.departments = filterParams.departments.join(',');
+      }
+      if (filterParams?.startDate) {
+        params.start_date = filterParams.startDate;
+      }
+      if (filterParams?.endDate) {
+        params.end_date = filterParams.endDate;
+      }
+
+      const response = await performanceApi.getSummary(
+        Object.keys(params).length > 0 ? params : undefined
+      );
       setSummary(response.data);
+
+      // Store all departments on initial load (without filters)
+      if (isInitialMount.current) {
+        setAllDepartments(response.data.department_ranking.map(d => d.department));
+        isInitialMount.current = false;
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error
@@ -62,34 +91,31 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Initial data fetch
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      fetchData(filters);
+    }
+  }, [filters, fetchData]);
 
   const handleFilterChange = useCallback((newFilters: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
-  // Filter data based on filter state using extracted pure function
-  const filteredData = useMemo(() => {
-    return applyFilters(summary, filters);
-  }, [summary, filters]);
-
   // Generate category data from summary
   const categoryData = useMemo(() => {
-    if (!filteredData?.summary) return [];
+    if (!summary?.summary) return [];
 
     return [
-      { name: '논문', value: filteredData.summary.total_papers || 0 },
-      { name: '특허', value: filteredData.summary.total_patents || 0 },
-      { name: '프로젝트', value: filteredData.summary.total_projects || 0 },
+      { name: '논문', value: summary.summary.total_papers || 0 },
+      { name: '특허', value: summary.summary.total_patents || 0 },
+      { name: '프로젝트', value: summary.summary.total_projects || 0 },
     ].filter(item => item.value > 0);
-  }, [filteredData]);
-
-  // Extract unique departments for filter
-  const availableDepartments = useMemo(() => {
-    if (!summary) return [];
-    return summary.department_ranking.map(item => item.department);
   }, [summary]);
 
   if (loading) {
@@ -105,7 +131,7 @@ export default function Dashboard() {
       <Alert
         severity="error"
         action={
-          <Button color="inherit" onClick={fetchData}>
+          <Button color="inherit" onClick={() => fetchData()}>
             재시도
           </Button>
         }
@@ -115,7 +141,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!summary || summary.monthly_trend.length === 0) {
+  if (!summary || (summary.monthly_trend.length === 0 && allDepartments.length === 0)) {
     return (
       <Alert
         severity="info"
@@ -130,7 +156,7 @@ export default function Dashboard() {
     );
   }
 
-  const summaryData = filteredData?.summary || summary.summary;
+  const summaryData = summary.summary;
   const totalResearch =
     (summaryData.total_papers || 0) +
     (summaryData.total_patents || 0) +
@@ -203,14 +229,14 @@ export default function Dashboard() {
       <FilterPanel
         filters={filters}
         onFilterChange={handleFilterChange}
-        availableDepartments={availableDepartments}
+        availableDepartments={allDepartments}
         availableDates={summary?.reference_dates || []}
       />
 
       {/* Charts Row 1: Monthly Trend + Expense Gauge */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, lg: 8 }}>
-          <MonthlyTrendChart data={filteredData?.monthly_trend || []} />
+          <MonthlyTrendChart data={summary?.monthly_trend || []} />
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
           <ExpenseRatioGauge
@@ -223,23 +249,23 @@ export default function Dashboard() {
       {/* Charts Row 2: Budget vs Expense + Research Trend */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <BudgetExpenseChart data={filteredData?.department_ranking || []} />
+          <BudgetExpenseChart data={summary?.department_ranking || []} />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <ResearchTrendChart data={filteredData?.monthly_trend || []} />
+          <ResearchTrendChart data={summary?.monthly_trend || []} />
         </Grid>
       </Grid>
 
       {/* Charts Row 3: Department Bar + Category Pie + Top 5 */}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <DepartmentBarChart data={filteredData?.department_ranking || []} />
+          <DepartmentBarChart data={summary?.department_ranking || []} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <CategoryPieChart data={categoryData} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <TopDepartmentsCard data={filteredData?.department_ranking || []} />
+          <TopDepartmentsCard data={summary?.department_ranking || []} />
         </Grid>
       </Grid>
     </Box>

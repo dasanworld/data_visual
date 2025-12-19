@@ -18,9 +18,13 @@ export const performanceApi = {
     });
   },
 
-  // Get dashboard summary
-  getSummary: (reference_date?: string) =>
-    api.get<DashboardSummary>('/summary/', { params: { reference_date } }),
+  // Get dashboard summary with optional filters
+  getSummary: (params?: {
+    reference_date?: string;
+    departments?: string;
+    start_date?: string;
+    end_date?: string;
+  }) => api.get<DashboardSummary>('/summary/', { params }),
 
   // Get upload logs
   getLogs: () => api.get<UploadLog[]>('/logs/'),

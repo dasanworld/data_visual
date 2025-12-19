@@ -187,16 +187,35 @@ class DashboardSummaryView(APIView):
 
     - GET /api/summary/ : 전체 요약
     - GET /api/summary/?reference_date=2024-05 : 특정 월 요약
+    - GET /api/summary/?departments=컴퓨터공학과,전자공학과 : 특정 부서 필터
+    - GET /api/summary/?start_date=2024-01&end_date=2024-12 : 날짜 범위 필터
     """
 
     permission_classes = API_PERMISSION
 
     def get(self, request):
         reference_date = request.query_params.get("reference_date")
+        departments = request.query_params.get("departments")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
 
         queryset = PerformanceData.objects.all()
+
+        # 기준월 필터
         if reference_date:
             queryset = queryset.filter(reference_date=reference_date)
+
+        # 날짜 범위 필터
+        if start_date:
+            queryset = queryset.filter(reference_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(reference_date__lte=end_date)
+
+        # 부서 필터 (쉼표로 구분된 부서 목록)
+        if departments:
+            dept_list = [d.strip() for d in departments.split(",") if d.strip()]
+            if dept_list:
+                queryset = queryset.filter(department__in=dept_list)
 
         # 집계 데이터
         summary = queryset.aggregate(
@@ -210,9 +229,9 @@ class DashboardSummaryView(APIView):
             avg_revenue=Avg("revenue"),
         )
 
-        # 월별 추이 데이터
+        # 월별 추이 데이터 (필터 적용)
         monthly_trend = (
-            PerformanceData.objects.values("reference_date")
+            queryset.values("reference_date")
             .annotate(
                 revenue=Sum("revenue"),
                 budget=Sum("budget"),
