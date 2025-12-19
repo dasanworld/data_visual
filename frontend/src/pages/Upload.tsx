@@ -1,14 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Alert,
-  Backdrop,
-  CircularProgress,
-} from '@mui/material';
+import { Box, Paper, Typography, Button, Alert, Backdrop, CircularProgress } from '@mui/material';
 import { CloudUpload } from '@mui/icons-material';
 import { performanceApi } from '../services/performanceApi';
 
@@ -114,14 +106,13 @@ export default function Upload() {
 
       setMessage({
         type: 'success',
-        text: `업로드 완료! ${response.data.created_count}개의 데이터가 저장되었습니다.`
+        text: `업로드 완료! ${response.data.created_count}개의 데이터가 저장되었습니다.`,
       });
 
       // Redirect to dashboard after 3 seconds
       setTimeout(() => {
         navigate('/dashboard');
       }, 3000);
-
     } catch (error) {
       const errorMessage =
         (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
@@ -216,7 +207,7 @@ export default function Upload() {
       )}
 
       {/* Loading overlay */}
-      <Backdrop open={uploading} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <Backdrop open={uploading} sx={{ zIndex: theme => theme.zIndex.drawer + 1 }}>
         <Box sx={{ textAlign: 'center' }}>
           <CircularProgress color="inherit" />
           <Typography variant="h6" sx={{ mt: 2, color: 'white' }}>

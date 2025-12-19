@@ -22,8 +22,17 @@ class PerformanceDataAdmin(admin.ModelAdmin):
         ("기본 정보", {"fields": ("reference_date", "department", "department_code")}),
         ("재무 실적", {"fields": ("revenue", "budget", "expenditure")}),
         ("연구 실적", {"fields": ("paper_count", "patent_count", "project_count")}),
-        ("추가 정보", {"fields": ("extra_metric_1", "extra_metric_2", "extra_text"), "classes": ("collapse",)}),
-        ("메타 정보", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        (
+            "추가 정보",
+            {
+                "fields": ("extra_metric_1", "extra_metric_2", "extra_text"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "메타 정보",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
     )
 
 

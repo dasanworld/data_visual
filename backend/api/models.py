@@ -17,8 +17,12 @@ class PerformanceData(models.Model):
     )
 
     # 부서/조직 정보
-    department = models.CharField(max_length=100, verbose_name="부서명", blank=True, default="")
-    department_code = models.CharField(max_length=20, verbose_name="부서코드", blank=True, default="")
+    department = models.CharField(
+        max_length=100, verbose_name="부서명", blank=True, default=""
+    )
+    department_code = models.CharField(
+        max_length=20, verbose_name="부서코드", blank=True, default=""
+    )
 
     # 실적 관련 필드
     revenue = models.DecimalField(

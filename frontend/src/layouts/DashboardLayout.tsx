@@ -12,13 +12,7 @@ import {
   ListItemText,
   IconButton,
 } from '@mui/material';
-import {
-  Dashboard,
-  UploadFile,
-  TableChart,
-  Logout,
-  Menu as MenuIcon,
-} from '@mui/icons-material';
+import { Dashboard, UploadFile, TableChart, Logout, Menu as MenuIcon } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 
 const DRAWER_WIDTH = 240;
@@ -53,7 +47,7 @@ export default function DashboardLayout() {
         </Typography>
       </Toolbar>
       <List>
-        {menuItems.map((item) => (
+        {menuItems.map(item => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton onClick={() => navigate(item.path)}>
               <ListItemIcon>{item.icon}</ListItemIcon>
@@ -63,7 +57,9 @@ export default function DashboardLayout() {
         ))}
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
-            <ListItemIcon><Logout /></ListItemIcon>
+            <ListItemIcon>
+              <Logout />
+            </ListItemIcon>
             <ListItemText primary="로그아웃" />
           </ListItemButton>
         </ListItem>
@@ -73,7 +69,7 @@ export default function DashboardLayout() {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar position="fixed" sx={{ zIndex: theme => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <IconButton
             color="inherit"
@@ -89,10 +85,7 @@ export default function DashboardLayout() {
         </Toolbar>
       </AppBar>
 
-      <Box
-        component="nav"
-        sx={{ width: { sm: DRAWER_WIDTH }, flexShrink: { sm: 0 } }}
-      >
+      <Box component="nav" sx={{ width: { sm: DRAWER_WIDTH }, flexShrink: { sm: 0 } }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}

@@ -30,10 +30,10 @@ export default function Dashboard() {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : typeof err === "object" && err !== null && "response" in err
+          : typeof err === 'object' && err !== null && 'response' in err
             ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-            : "데이터를 불러오는 중 오류가 발생했습니다.";
-      setError(errorMessage || "데이터를 불러오는 중 오류가 발생했습니다.");
+            : '데이터를 불러오는 중 오류가 발생했습니다.';
+      setError(errorMessage || '데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -44,7 +44,7 @@ export default function Dashboard() {
   }, [fetchData]);
 
   const handleFilterChange = useCallback((newFilters: Partial<FilterState>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
   // Filter data based on filter state using extracted pure function

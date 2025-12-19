@@ -7,8 +7,7 @@ export const performanceApi = {
     api.get<PerformanceData[]>('/data/', { params }),
 
   // Get single data by ID
-  getDataById: (id: number) =>
-    api.get<PerformanceData>(`/data/${id}/`),
+  getDataById: (id: number) => api.get<PerformanceData>(`/data/${id}/`),
 
   // Upload excel file
   uploadExcel: (file: File) => {
@@ -24,6 +23,5 @@ export const performanceApi = {
     api.get<DashboardSummary>('/summary/', { params: { reference_date } }),
 
   // Get upload logs
-  getLogs: () =>
-    api.get<UploadLog[]>('/logs/'),
+  getLogs: () => api.get<UploadLog[]>('/logs/'),
 };

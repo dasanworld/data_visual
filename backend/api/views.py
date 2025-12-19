@@ -88,9 +88,7 @@ class ExcelUploadView(APIView):
                 # 해당 기준 년월의 기존 데이터 삭제
                 for ref_date in reference_dates:
                     ref_date_str = ExcelParser.normalize_date(ref_date)
-                    PerformanceData.objects.filter(
-                        reference_date=ref_date_str
-                    ).delete()
+                    PerformanceData.objects.filter(reference_date=ref_date_str).delete()
 
                 # 새 데이터 일괄 삽입
                 created_objects = PerformanceData.objects.bulk_create(

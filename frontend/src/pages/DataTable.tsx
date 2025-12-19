@@ -53,7 +53,7 @@ export default function DataTable() {
     }
 
     const lowercased = searchText.toLowerCase();
-    const filtered = data.filter((row) => {
+    const filtered = data.filter(row => {
       return (
         row.reference_date.toLowerCase().includes(lowercased) ||
         row.department.toLowerCase().includes(lowercased) ||
@@ -74,7 +74,7 @@ export default function DataTable() {
     }
 
     // Create CSV data
-    const csvData = filteredData.map((row) => ({
+    const csvData = filteredData.map(row => ({
       날짜: row.reference_date,
       부서: row.department,
       부서코드: row.department_code,
@@ -86,8 +86,8 @@ export default function DataTable() {
     const headers = Object.keys(csvData[0]);
     const csvContent = [
       headers.join(','),
-      ...csvData.map((row) =>
-        headers.map((header) => `"${row[header as keyof typeof row]}"`).join(',')
+      ...csvData.map(row =>
+        headers.map(header => `"${row[header as keyof typeof row]}"`).join(',')
       ),
     ].join('\n');
 
@@ -187,7 +187,7 @@ export default function DataTable() {
               label="검색"
               variant="outlined"
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={e => setSearchText(e.target.value)}
               placeholder="날짜, 부서, 부서코드, 금액 검색..."
               fullWidth
               InputProps={{

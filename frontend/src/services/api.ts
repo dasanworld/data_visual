@@ -12,19 +12,19 @@ const api: AxiosInstance = axios.create({
 
 // Request interceptor (CSRF token)
 api.interceptors.request.use(
-  (config) => {
+  config => {
     const csrfToken = getCookie('csrftoken');
     if (csrfToken) {
       config.headers['X-CSRFToken'] = csrfToken;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  error => Promise.reject(error)
 );
 
 // Response interceptor (error handling)
 api.interceptors.response.use(
-  (response) => response,
+  response => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       window.location.href = '/admin/login/';

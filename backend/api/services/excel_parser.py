@@ -120,7 +120,14 @@ class ExcelParser:
                 # Multiple sources, apply priority logic
                 if target == "department":
                     # Priority: 단과대학 > 학과 > 소속학과 > 부서명 > 부서
-                    priority = ["단과대학", "학과", "소속학과", "부서명", "부서", "department"]
+                    priority = [
+                        "단과대학",
+                        "학과",
+                        "소속학과",
+                        "부서명",
+                        "부서",
+                        "department",
+                    ]
                     for pref in priority:
                         if pref in sources:
                             mapped_columns[pref] = target
@@ -179,7 +186,9 @@ class ExcelParser:
             raise ValueError("기준 년월 데이터가 없습니다.")
         return list(reference_dates)
 
-    def parse_dataframe(self, df: pd.DataFrame) -> tuple[list[PerformanceData], list[str]]:
+    def parse_dataframe(
+        self, df: pd.DataFrame
+    ) -> tuple[list[PerformanceData], list[str]]:
         """
         Parse DataFrame rows into PerformanceData objects.
 
@@ -294,14 +303,14 @@ class ExcelParser:
 
         # YYYY-MM-DD format (full date) - extract year and month
         # Matches: 2024-05-15, 2024/05/15, 2024.05.15
-        match_full_date = re.match(r'^(\d{4})[./\-](\d{1,2})[./\-]\d{1,2}$', val_str)
+        match_full_date = re.match(r"^(\d{4})[./\-](\d{1,2})[./\-]\d{1,2}$", val_str)
         if match_full_date:
             year, month = match_full_date.groups()
             return f"{year}-{int(month):02d}"
 
         # Regex pattern for YYYY[separator]MM formats (including space)
         # Matches: 2024.05, 2024/5, 2024-5, 2024. 5 (with space)
-        match = re.match(r'^(\d{4})[./\-\s]+(\d{1,2})$', val_str)
+        match = re.match(r"^(\d{4})[./\-\s]+(\d{1,2})$", val_str)
         if match:
             year, month = match.groups()
             return f"{year}-{int(month):02d}"
@@ -312,7 +321,7 @@ class ExcelParser:
             return f"{val_str}-01"
 
         # Handle float representation of YYYY (e.g., 2024.0)
-        if '.' in val_str:
+        if "." in val_str:
             try:
                 int_value = int(float(val_str))
                 int_str = str(int_value)

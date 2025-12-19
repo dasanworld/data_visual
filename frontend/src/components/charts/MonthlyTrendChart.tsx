@@ -1,4 +1,13 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 import { formatNumber } from '../../utils/formatters';
 
@@ -29,16 +38,12 @@ export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="reference_date"
-              tick={{ fontSize: 12 }}
-            />
-            <YAxis
-              tick={{ fontSize: 12 }}
-              tickFormatter={formatNumber}
-            />
+            <XAxis dataKey="reference_date" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} tickFormatter={formatNumber} />
             <Tooltip
-              formatter={(value: number | undefined) => value !== undefined ? formatNumber(value) : ''}
+              formatter={(value: number | undefined) =>
+                value !== undefined ? formatNumber(value) : ''
+              }
               labelStyle={{ fontWeight: 'bold' }}
             />
             <Legend />

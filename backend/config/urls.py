@@ -23,11 +23,11 @@ def serve_react(request):
     - React Router가 클라이언트 사이드에서 라우팅 처리
     """
     # staticfiles 디렉토리에서 index.html 찾기
-    index_path = os.path.join(settings.STATICFILES_DIRS[0], 'index.html')
+    index_path = os.path.join(settings.STATICFILES_DIRS[0], "index.html")
 
     if os.path.exists(index_path):
-        with open(index_path, 'r', encoding='utf-8') as f:
-            return HttpResponse(f.read(), content_type='text/html')
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HttpResponse(f.read(), content_type="text/html")
 
     # 개발 모드에서 React 빌드가 없는 경우
     return HttpResponse(
@@ -42,23 +42,22 @@ def serve_react(request):
         </body>
         </html>
         """,
-        content_type='text/html'
+        content_type="text/html",
     )
 
 
 urlpatterns = [
     # Django Admin (인증/사용자 관리)
-    path('admin/', admin.site.urls),
-
+    path("admin/", admin.site.urls),
     # REST API
-    path('api/', include('api.urls')),
-
+    path("api/", include("api.urls")),
     # React SPA catch-all (API와 Admin 외 모든 요청)
     # 주의: 이 패턴은 반드시 마지막에 위치해야 함
-    re_path(r'^(?!api/|admin/|static/).*$', serve_react, name='react-app'),
+    re_path(r"^(?!api/|admin/|static/).*$", serve_react, name="react-app"),
 ]
 
 # 개발 모드에서 정적 파일 서빙 (DEBUG=True)
 if settings.DEBUG:
     from django.conf.urls.static import static
+
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

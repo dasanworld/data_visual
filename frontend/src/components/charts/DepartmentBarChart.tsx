@@ -1,4 +1,13 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 import { formatNumber } from '../../utils/formatters';
 
@@ -37,26 +46,15 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
               textAnchor="end"
               height={100}
             />
-            <YAxis
-              tick={{ fontSize: 12 }}
-              tickFormatter={formatNumber}
-            />
+            <YAxis tick={{ fontSize: 12 }} tickFormatter={formatNumber} />
             <Tooltip
-              formatter={(value: number | undefined) => value !== undefined ? formatNumber(value) : ''}
+              formatter={(value: number | undefined) =>
+                value !== undefined ? formatNumber(value) : ''
+              }
             />
             <Legend />
-            <Bar
-              dataKey="total_revenue"
-              name="총 매출액"
-              fill="#1976d2"
-              radius={[8, 8, 0, 0]}
-            />
-            <Bar
-              dataKey="total_papers"
-              name="총 논문 수"
-              fill="#f57c00"
-              radius={[8, 8, 0, 0]}
-            />
+            <Bar dataKey="total_revenue" name="총 매출액" fill="#1976d2" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="total_papers" name="총 논문 수" fill="#f57c00" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}

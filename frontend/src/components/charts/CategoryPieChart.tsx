@@ -1,6 +1,6 @@
-import type { PieLabelRenderProps, TooltipProps } from "recharts";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Paper, Typography, Box } from "@mui/material";
+import type { PieLabelRenderProps, TooltipProps } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Paper, Typography, Box } from '@mui/material';
 
 interface CategoryData {
   name: string;
@@ -20,7 +20,7 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
 
   const chartData = data.map(item => ({
     ...item,
-    percentage: total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0'
+    percentage: total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0',
   }));
 
   return (
@@ -54,18 +54,19 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number | undefined, _name: string | undefined, props: TooltipProps<number, string>) => {
-                const payload = (props.payload as unknown) as CategoryData;
+              formatter={(
+                value: number | undefined,
+                _name: string | undefined,
+                props: TooltipProps<number, string>
+              ) => {
+                const payload = props.payload as unknown as CategoryData;
                 return [
-                  value !== undefined ? `${value}건 (${payload.percentage}%)` : "",
-                  payload.name || "",
+                  value !== undefined ? `${value}건 (${payload.percentage}%)` : '',
+                  payload.name || '',
                 ];
               }}
             />
-            <Legend
-              verticalAlign="bottom"
-              height={36}
-            />
+            <Legend verticalAlign="bottom" height={36} />
           </PieChart>
         </ResponsiveContainer>
       )}

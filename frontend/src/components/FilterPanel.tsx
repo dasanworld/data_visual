@@ -1,10 +1,10 @@
-import { SyntheticEvent } from "react";
-import { Box, Paper, Typography, TextField, Autocomplete, Button } from "@mui/material";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { ko } from "date-fns/locale/ko";
-import { format } from "date-fns/format";
+import { SyntheticEvent } from 'react';
+import { Box, Paper, Typography, TextField, Autocomplete, Button } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { ko } from 'date-fns/locale/ko';
+import { format } from 'date-fns/format';
 
 interface FilterState {
   startDate: string | null;
@@ -26,13 +26,13 @@ export default function FilterPanel({
 }: FilterPanelProps) {
   const handleStartDateChange = (date: Date | null) => {
     onFilterChange({
-      startDate: date ? format(date, 'yyyy-MM') : null
+      startDate: date ? format(date, 'yyyy-MM') : null,
     });
   };
 
   const handleEndDateChange = (date: Date | null) => {
     onFilterChange({
-      endDate: date ? format(date, 'yyyy-MM') : null
+      endDate: date ? format(date, 'yyyy-MM') : null,
     });
   };
 
@@ -44,7 +44,7 @@ export default function FilterPanel({
     onFilterChange({
       startDate: null,
       endDate: null,
-      departments: []
+      departments: [],
     });
   };
 
@@ -78,16 +78,11 @@ export default function FilterPanel({
           options={availableDepartments}
           value={filters.departments}
           onChange={handleDepartmentChange}
-          renderInput={(params) => (
-            <TextField {...params} label="부서 선택" size="small" />
-          )}
+          renderInput={params => <TextField {...params} label="부서 선택" size="small" />}
           sx={{ width: 300 }}
         />
 
-        <Button
-          variant="outlined"
-          onClick={handleReset}
-        >
+        <Button variant="outlined" onClick={handleReset}>
           필터 초기화
         </Button>
       </Box>

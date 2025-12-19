@@ -50,9 +50,7 @@ export function applyFilters(
   // Apply department filter to department_ranking
   let filteredRanking = departmentRanking;
   if (filters.departments && filters.departments.length > 0) {
-    filteredRanking = filteredRanking.filter(item =>
-      filters.departments.includes(item.department)
-    );
+    filteredRanking = filteredRanking.filter(item => filters.departments.includes(item.department));
   }
 
   // Create deep copies to maintain immutability
