@@ -14,8 +14,11 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Chip,
+  IconButton,
+  LinearProgress,
 } from '@mui/material';
-import { CloudUpload, Download, Description } from '@mui/icons-material';
+import { CloudUpload, Download, Description, Delete, CheckCircle, Error } from '@mui/icons-material';
 import { performanceApi } from '../services/performanceApi';
 
 // 샘플 데이터 파일 목록
@@ -28,18 +31,26 @@ const SAMPLE_FILES = [
   { name: 'large_dataset.xlsx', description: '대용량 데이터셋 (1000개 행)' },
 ];
 
+interface FileWithStatus {
+  file: File;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  message?: string;
+  createdCount?: number;
+}
+
 export default function Upload() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State management
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<FileWithStatus[]>([]);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{
-    type: 'success' | 'error' | null;
+    type: 'success' | 'error' | 'info' | null;
     text: string;
   }>({ type: null, text: '' });
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // File validation
   const validateFile = (file: File): string | null => {
@@ -61,16 +72,41 @@ export default function Upload() {
     return null; // Validation success
   };
 
-  // File selection handler
-  const handleFileSelect = (file: File) => {
-    const error = validateFile(file);
-    if (error) {
-      setMessage({ type: 'error', text: error });
-      setSelectedFile(null);
+  // Add files to selection
+  const handleFilesSelect = (files: FileList) => {
+    const newFiles: FileWithStatus[] = [];
+    const errors: string[] = [];
+
+    Array.from(files).forEach(file => {
+      // Check for duplicates
+      const isDuplicate = selectedFiles.some(f => f.file.name === file.name);
+      if (isDuplicate) {
+        errors.push(`${file.name}: 이미 선택된 파일입니다.`);
+        return;
+      }
+
+      const error = validateFile(file);
+      if (error) {
+        errors.push(`${file.name}: ${error}`);
+      } else {
+        newFiles.push({ file, status: 'pending' });
+      }
+    });
+
+    if (newFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+
+    if (errors.length > 0) {
+      setMessage({ type: 'error', text: errors.join('\n') });
     } else {
-      setSelectedFile(file);
       setMessage({ type: null, text: '' });
     }
+  };
+
+  // Remove file from selection
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // File button click handler
@@ -82,8 +118,10 @@ export default function Upload() {
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFilesSelect(files);
     }
+    // Reset input value to allow selecting same file again
+    e.target.value = '';
   };
 
   // Drag & Drop handlers
@@ -111,39 +149,125 @@ export default function Upload() {
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFilesSelect(files);
     }
   };
 
-  // Upload execution
+  // Upload all files sequentially
   const handleUpload = async () => {
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       setMessage({ type: 'error', text: '파일을 선택해주세요.' });
       return;
     }
 
     setUploading(true);
     setMessage({ type: null, text: '' });
+    setUploadProgress(0);
 
-    try {
-      const response = await performanceApi.uploadExcel(selectedFile);
+    let totalCreated = 0;
+    let successCount = 0;
+    let errorCount = 0;
 
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const fileWithStatus = selectedFiles[i];
+
+      // Skip already processed files
+      if (fileWithStatus.status === 'success') {
+        successCount++;
+        continue;
+      }
+
+      // Update status to uploading
+      setSelectedFiles(prev =>
+        prev.map((f, idx) => (idx === i ? { ...f, status: 'uploading' } : f))
+      );
+
+      try {
+        const response = await performanceApi.uploadExcel(fileWithStatus.file);
+        const createdCount = response.data.created_count;
+        totalCreated += createdCount;
+        successCount++;
+
+        // Update status to success
+        setSelectedFiles(prev =>
+          prev.map((f, idx) =>
+            idx === i
+              ? { ...f, status: 'success', createdCount, message: `${createdCount}개 저장됨` }
+              : f
+          )
+        );
+      } catch (error) {
+        errorCount++;
+        const errorMessage =
+          (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+          '업로드 실패';
+
+        // Update status to error
+        setSelectedFiles(prev =>
+          prev.map((f, idx) => (idx === i ? { ...f, status: 'error', message: errorMessage } : f))
+        );
+      }
+
+      // Update progress
+      setUploadProgress(((i + 1) / selectedFiles.length) * 100);
+    }
+
+    setUploading(false);
+
+    // Show final message
+    if (errorCount === 0) {
       setMessage({
         type: 'success',
-        text: `업로드 완료! ${response.data.created_count}개의 데이터가 저장되었습니다.`,
+        text: `모든 파일 업로드 완료! 총 ${totalCreated}개의 데이터가 저장되었습니다.`,
       });
 
-      // Redirect to data table after 2 seconds to show uploaded data
+      // Redirect to data table after 2 seconds
       setTimeout(() => {
         navigate('/data');
       }, 2000);
-    } catch (error) {
-      const errorMessage =
-        (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
-        '업로드 중 오류가 발생했습니다.';
-      setMessage({ type: 'error', text: errorMessage });
-    } finally {
-      setUploading(false);
+    } else if (successCount > 0) {
+      setMessage({
+        type: 'info',
+        text: `${successCount}개 파일 성공, ${errorCount}개 파일 실패. 총 ${totalCreated}개 데이터 저장.`,
+      });
+    } else {
+      setMessage({
+        type: 'error',
+        text: '모든 파일 업로드에 실패했습니다.',
+      });
+    }
+  };
+
+  // Clear all files
+  const handleClearAll = () => {
+    setSelectedFiles([]);
+    setMessage({ type: null, text: '' });
+    setUploadProgress(0);
+  };
+
+  const getStatusIcon = (status: FileWithStatus['status']) => {
+    switch (status) {
+      case 'success':
+        return <CheckCircle color="success" fontSize="small" />;
+      case 'error':
+        return <Error color="error" fontSize="small" />;
+      case 'uploading':
+        return <CircularProgress size={16} />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusColor = (status: FileWithStatus['status']) => {
+    switch (status) {
+      case 'success':
+        return 'success';
+      case 'error':
+        return 'error';
+      case 'uploading':
+        return 'primary';
+      default:
+        return 'default';
     }
   };
 
@@ -162,6 +286,7 @@ export default function Upload() {
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
+          onClick={handleFileButtonClick}
           sx={{
             border: '2px dashed',
             borderColor: isDragging ? 'primary.main' : 'grey.300',
@@ -172,55 +297,130 @@ export default function Upload() {
             cursor: 'pointer',
             mb: 3,
             transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              borderColor: 'primary.light',
+              bgcolor: 'action.hover',
+            },
           }}
         >
           <CloudUpload sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
           <Typography variant="body1" gutterBottom>
-            파일을 여기에 드래그하거나 버튼을 클릭하세요
+            파일을 여기에 드래그하거나 클릭하여 선택하세요
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+            여러 파일을 한번에 선택할 수 있습니다
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
             지원 형식: .xlsx, .xls, .csv (최대 10MB)
           </Typography>
         </Box>
 
-        {/* Hidden file input */}
+        {/* Hidden file input - multiple enabled */}
         <input
           type="file"
           ref={fileInputRef}
           style={{ display: 'none' }}
           accept=".xlsx,.xls,.csv"
+          multiple
           onChange={handleFileInputChange}
         />
 
-        {/* File selection button */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+        {/* Selected files list */}
+        {selectedFiles.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                선택된 파일 ({selectedFiles.length}개)
+              </Typography>
+              <Button size="small" color="error" onClick={handleClearAll} disabled={uploading}>
+                전체 삭제
+              </Button>
+            </Box>
+            <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
+              <List dense>
+                {selectedFiles.map((fileWithStatus, index) => (
+                  <ListItem
+                    key={`${fileWithStatus.file.name}-${index}`}
+                    secondaryAction={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {fileWithStatus.message && (
+                          <Typography variant="caption" color="text.secondary">
+                            {fileWithStatus.message}
+                          </Typography>
+                        )}
+                        {getStatusIcon(fileWithStatus.status)}
+                        {fileWithStatus.status === 'pending' && (
+                          <IconButton
+                            edge="end"
+                            size="small"
+                            onClick={() => handleRemoveFile(index)}
+                            disabled={uploading}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                    }
+                  >
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <Description fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={fileWithStatus.file.name}
+                      secondary={`${(fileWithStatus.file.size / 1024).toFixed(1)} KB`}
+                      primaryTypographyProps={{ variant: 'body2' }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                    <Chip
+                      label={
+                        fileWithStatus.status === 'pending'
+                          ? '대기'
+                          : fileWithStatus.status === 'uploading'
+                            ? '업로드 중'
+                            : fileWithStatus.status === 'success'
+                              ? '완료'
+                              : '실패'
+                      }
+                      size="small"
+                      color={getStatusColor(fileWithStatus.status)}
+                      sx={{ mr: 1 }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+
+            {/* Upload progress */}
+            {uploading && (
+              <Box sx={{ mt: 2 }}>
+                <LinearProgress variant="determinate" value={uploadProgress} />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  {Math.round(uploadProgress)}% 완료
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Action buttons */}
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
             startIcon={<CloudUpload />}
             onClick={handleFileButtonClick}
             disabled={uploading}
           >
-            파일 선택
+            파일 추가
           </Button>
-
-          {/* Selected filename */}
-          {selectedFile && (
-            <Typography variant="body2" color="text.secondary">
-              {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-            </Typography>
-          )}
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleUpload}
+            disabled={selectedFiles.length === 0 || uploading}
+          >
+            {uploading ? '업로드 중...' : `업로드 시작 (${selectedFiles.length}개 파일)`}
+          </Button>
         </Box>
-
-        {/* Upload button */}
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={handleUpload}
-          disabled={!selectedFile || uploading}
-          sx={{ mt: 2 }}
-        >
-          {uploading ? '업로드 중...' : '업로드 시작'}
-        </Button>
       </Paper>
 
       {/* Sample Data Section */}
@@ -254,7 +454,7 @@ export default function Upload() {
 
       {/* Success/Error message */}
       {message.type && (
-        <Alert severity={message.type} sx={{ mt: 2 }}>
+        <Alert severity={message.type} sx={{ mt: 2, whiteSpace: 'pre-line' }}>
           {message.text}
         </Alert>
       )}
@@ -264,7 +464,7 @@ export default function Upload() {
         <Box sx={{ textAlign: 'center' }}>
           <CircularProgress color="inherit" />
           <Typography variant="h6" sx={{ mt: 2, color: 'white' }}>
-            업로드 중입니다...
+            파일 업로드 중... ({Math.round(uploadProgress)}%)
           </Typography>
         </Box>
       </Backdrop>
