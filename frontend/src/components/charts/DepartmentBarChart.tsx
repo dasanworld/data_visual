@@ -35,7 +35,7 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
   const topDepartments = data.slice(0, 10);
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 420 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         부서별 실적 (상위 10개)
       </Typography>

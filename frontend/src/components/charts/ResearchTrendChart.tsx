@@ -34,7 +34,7 @@ export default function ResearchTrendChart({ data }: ResearchTrendChartProps) {
     }));
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 420 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         연구 성과 트렌드
       </Typography>

@@ -43,7 +43,7 @@ export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
     }));
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 420 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         월별 추이
       </Typography>

@@ -36,7 +36,7 @@ export default function TopDepartmentsCard({ data }: TopDepartmentsCardProps) {
   const maxRevenue = Math.max(...topDepartments.map(d => d.total_revenue || 0), 1);
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 350 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <EmojiEvents sx={{ color: '#ffd700' }} />
         <Typography variant="h6" sx={{ fontWeight: 600 }}>

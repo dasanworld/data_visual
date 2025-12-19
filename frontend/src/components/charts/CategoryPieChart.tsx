@@ -30,7 +30,7 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
   }));
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 350 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         연구 성과 분포
       </Typography>

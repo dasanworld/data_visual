@@ -32,7 +32,7 @@ export default function BudgetExpenseChart({ data }: BudgetExpenseChartProps) {
   }));
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 420 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         부서별 예산 vs 지출
       </Typography>

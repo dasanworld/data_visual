@@ -35,7 +35,7 @@ export default function ExpenseRatioGauge({ budget, expenditure }: ExpenseRatioG
   };
 
   return (
-    <Paper sx={{ p: 3, height: '100%' }}>
+    <Paper sx={{ p: 3, minHeight: 350 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         예산 대비 지출률
       </Typography>
