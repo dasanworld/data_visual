@@ -59,9 +59,7 @@ export default function DataTable() {
       return (
         row.reference_date.toLowerCase().includes(lowercased) ||
         row.department.toLowerCase().includes(lowercased) ||
-        row.department_code.toLowerCase().includes(lowercased) ||
-        row.revenue.toString().includes(lowercased) ||
-        row.budget.toString().includes(lowercased)
+        row.department_code.toLowerCase().includes(lowercased)
       );
     });
 
@@ -79,9 +77,12 @@ export default function DataTable() {
     const csvData = filteredData.map(row => ({
       날짜: row.reference_date,
       부서: row.department,
-      부서코드: row.department_code,
       매출액: row.revenue,
       예산: row.budget,
+      지출액: row.expenditure,
+      논문수: row.paper_count,
+      특허수: row.patent_count,
+      프로젝트수: row.project_count,
     }));
 
     // Generate CSV string
@@ -115,40 +116,65 @@ export default function DataTable() {
     {
       field: 'reference_date',
       headerName: '날짜',
-      width: 150,
+      width: 100,
       sortable: true,
     },
     {
       field: 'department',
       headerName: '부서',
-      width: 200,
-      sortable: true,
-    },
-    {
-      field: 'department_code',
-      headerName: '부서코드',
-      width: 150,
+      width: 140,
       sortable: true,
     },
     {
       field: 'revenue',
       headerName: '매출액',
-      width: 180,
+      width: 130,
       sortable: true,
       type: 'number',
       valueFormatter: (value: number | undefined) => {
-        return value != null ? value.toLocaleString('ko-KR') : '0';
+        return value != null ? Number(value).toLocaleString('ko-KR') : '0';
       },
     },
     {
       field: 'budget',
       headerName: '예산',
-      width: 180,
+      width: 130,
       sortable: true,
       type: 'number',
       valueFormatter: (value: number | undefined) => {
-        return value != null ? value.toLocaleString('ko-KR') : '0';
+        return value != null ? Number(value).toLocaleString('ko-KR') : '0';
       },
+    },
+    {
+      field: 'expenditure',
+      headerName: '지출액',
+      width: 130,
+      sortable: true,
+      type: 'number',
+      valueFormatter: (value: number | undefined) => {
+        return value != null ? Number(value).toLocaleString('ko-KR') : '0';
+      },
+    },
+    {
+      field: 'paper_count',
+      headerName: '논문',
+      width: 80,
+      sortable: true,
+      type: 'number',
+    },
+    {
+      field: 'patent_count',
+      headerName: '특허',
+      width: 80,
+      sortable: true,
+      type: 'number',
+    },
+    {
+      field: 'project_count',
+      headerName: '프로젝트',
+      width: 90,
+      sortable: true,
+      type: 'number',
     },
   ];
 
