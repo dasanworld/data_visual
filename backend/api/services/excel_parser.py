@@ -30,42 +30,87 @@ class ExcelParser:
         # Date columns - all map to reference_date
         "기준년월": "reference_date",
         "기준 년월": "reference_date",
+        "기준_년월": "reference_date",
+        "기준월": "reference_date",
+        "년월": "reference_date",
+        "연월": "reference_date",
         "reference_date": "reference_date",
+        "date": "reference_date",
         "평가년도": "reference_date",  # Department KPI evaluation year
+        "평가년월": "reference_date",
         "게재일": "reference_date",  # Publication date
+        "게재년월": "reference_date",
         "집행일자": "reference_date",  # Research project execution date
+        "집행년월": "reference_date",
         "날짜": "reference_date",  # Generic date
+        "일자": "reference_date",
+        "년도": "reference_date",
+        "연도": "reference_date",
+        "year": "reference_date",
+        "month": "reference_date",
+        "yearmonth": "reference_date",
+        "yyyymm": "reference_date",
         # Department columns
         "부서명": "department",
         "부서": "department",
         "department": "department",
+        "dept": "department",
         "단과대학": "department",  # College/Faculty
         "학과": "department",  # Department
+        "학과명": "department",
         "소속학과": "department",  # Affiliated department
+        "소속": "department",
+        "기관": "department",
+        "기관명": "department",
+        "조직": "department",
+        "조직명": "department",
+        "팀": "department",
+        "팀명": "department",
         # Department code
         "부서코드": "department_code",
+        "부서_코드": "department_code",
         "department_code": "department_code",
+        "dept_code": "department_code",
+        "코드": "department_code",
         # Revenue/Budget/Expenditure columns
         "매출액": "revenue",
         "매출": "revenue",
         "revenue": "revenue",
+        "sales": "revenue",
+        "수입": "revenue",
+        "수입액": "revenue",
+        "금액": "revenue",
         "예산": "budget",
+        "예산액": "budget",
         "budget": "budget",
+        "배정예산": "budget",
         "지출액": "expenditure",
         "지출": "expenditure",
         "expenditure": "expenditure",
+        "expense": "expenditure",
         "집행금액": "expenditure",  # Research project execution amount
+        "집행액": "expenditure",
+        "사용액": "expenditure",
         "총연구비": "budget",  # Total research budget
+        "연구비": "budget",
         # Paper/Patent/Project counts
         "논문수": "paper_count",
         "논문": "paper_count",
+        "논문건수": "paper_count",
         "paper_count": "paper_count",
+        "papers": "paper_count",
         "특허수": "patent_count",
         "특허": "patent_count",
+        "특허건수": "patent_count",
         "patent_count": "patent_count",
+        "patents": "patent_count",
         "프로젝트수": "project_count",
         "프로젝트": "project_count",
+        "프로젝트건수": "project_count",
         "project_count": "project_count",
+        "projects": "project_count",
+        "과제수": "project_count",
+        "과제": "project_count",
         # Extra metrics
         "추가지표1": "extra_metric_1",
         "추가지표2": "extra_metric_2",
@@ -75,7 +120,15 @@ class ExcelParser:
         "지표2": "extra_metric_2",  # Generic metric 2
         # Text fields
         "비고": "extra_text",
+        "메모": "extra_text",
+        "note": "extra_text",
+        "notes": "extra_text",
     }
+
+    # Keywords to auto-detect date columns
+    DATE_KEYWORDS = ["년월", "년도", "연월", "연도", "날짜", "일자", "date", "year", "month", "기준"]
+    # Keywords to auto-detect department columns
+    DEPT_KEYWORDS = ["부서", "학과", "기관", "조직", "팀", "단과", "소속", "dept", "department"]
 
     def read_excel(self, file_content: bytes, filename: str = "") -> pd.DataFrame:
         """
@@ -169,6 +222,38 @@ class ExcelParser:
 
         df = df.rename(columns=mapped_columns)
 
+        # Auto-detect columns by keywords if reference_date not found
+        if "reference_date" not in df.columns:
+            for col in df.columns:
+                col_lower = col.lower()
+                for keyword in self.DATE_KEYWORDS:
+                    if keyword.lower() in col_lower:
+                        df = df.rename(columns={col: "reference_date"})
+                        break
+                if "reference_date" in df.columns:
+                    break
+
+        # Auto-detect department column if not found
+        if "department" not in df.columns:
+            for col in df.columns:
+                col_lower = col.lower()
+                for keyword in self.DEPT_KEYWORDS:
+                    if keyword.lower() in col_lower:
+                        df = df.rename(columns={col: "department"})
+                        break
+                if "department" in df.columns:
+                    break
+
+        # If still no reference_date, try to use first column if it looks like a date
+        if "reference_date" not in df.columns and len(df.columns) > 0:
+            first_col = df.columns[0]
+            first_val = df[first_col].dropna().iloc[0] if len(df[first_col].dropna()) > 0 else None
+            if first_val is not None:
+                val_str = str(first_val)
+                # Check if it looks like a date (YYYY-MM, YYYYMM, YYYY, etc.)
+                if re.match(r"^\d{4}[-./\s]?\d{0,2}$", val_str) or re.match(r"^\d{6}$", val_str):
+                    df = df.rename(columns={first_col: "reference_date"})
+
         return df
 
     def validate_dataframe(self, df: pd.DataFrame) -> None:
@@ -182,7 +267,14 @@ class ExcelParser:
             ValueError: If required columns are missing
         """
         if "reference_date" not in df.columns:
-            raise ValueError("'기준년월' 또는 'reference_date' 컬럼이 필요합니다.")
+            columns_found = ", ".join(df.columns.tolist()[:10])
+            if len(df.columns) > 10:
+                columns_found += f" 외 {len(df.columns) - 10}개"
+            raise ValueError(
+                f"날짜 컬럼을 찾을 수 없습니다. "
+                f"'기준년월', '날짜', '년월' 등의 컬럼이 필요합니다. "
+                f"현재 컬럼: [{columns_found}]"
+            )
 
     def extract_reference_dates(self, df: pd.DataFrame) -> list:
         """
