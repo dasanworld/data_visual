@@ -1,10 +1,10 @@
 import api from './api';
-import type { PerformanceData, UploadResponse, DashboardSummary, UploadLog } from '../types';
+import type { PerformanceData, PaginatedResponse, UploadResponse, DashboardSummary, UploadLog } from '../types';
 
 export const performanceApi = {
-  // Get all data with optional filters
+  // Get all data with optional filters (paginated)
   getData: (params?: { reference_date?: string; department?: string }) =>
-    api.get<PerformanceData[]>('/data/', { params }),
+    api.get<PaginatedResponse<PerformanceData>>('/data/', { params }),
 
   // Get single data by ID
   getDataById: (id: number) => api.get<PerformanceData>(`/data/${id}/`),

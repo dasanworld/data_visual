@@ -34,8 +34,10 @@ export default function DataTable() {
       setError(null);
       try {
         const response = await performanceApi.getData();
-        setData(response.data);
-        setFilteredData(response.data);
+        // API returns paginated response with results array
+        const results = response.data.results || [];
+        setData(results);
+        setFilteredData(results);
       } catch {
         setError('데이터를 불러올 수 없습니다.');
       } finally {
