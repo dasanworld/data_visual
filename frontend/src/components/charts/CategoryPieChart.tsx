@@ -40,7 +40,8 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
+        <Box sx={{ width: '100%', height: 280 }}>
+          <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <defs>
               {COLORS.map((color, index) => (
@@ -99,6 +100,7 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
             />
           </PieChart>
         </ResponsiveContainer>
+        </Box>
       )}
     </Paper>
   );

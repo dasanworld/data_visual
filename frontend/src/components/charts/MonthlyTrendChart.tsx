@@ -53,7 +53,8 @@ export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <ResponsiveContainer width="100%" height={350}>
+        <Box sx={{ width: '100%', height: 350 }}>
+          <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -123,6 +124,7 @@ export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
             />
           </LineChart>
         </ResponsiveContainer>
+        </Box>
       )}
     </Paper>
   );

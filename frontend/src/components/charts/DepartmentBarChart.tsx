@@ -45,7 +45,8 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <ResponsiveContainer width="100%" height={350}>
+        <Box sx={{ width: '100%', height: 350 }}>
+          <ResponsiveContainer width="100%" height="100%">
           <BarChart data={topDepartments} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
             <defs>
               <linearGradient id="revenueBarGradient" x1="0" y1="0" x2="0" y2="1">
@@ -98,6 +99,7 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
             />
           </BarChart>
         </ResponsiveContainer>
+        </Box>
       )}
     </Paper>
   );
