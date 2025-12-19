@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
 interface BudgetExpenseData {
@@ -36,9 +36,8 @@ export default function BudgetExpenseChart({ data }: BudgetExpenseChartProps) {
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         부서별 예산 vs 지출
       </Typography>
-      <Box sx={{ width: '100%', height: 350 }}>
-        <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+      <Box sx={{ width: '100%', overflowX: 'auto' }}>
+        <BarChart width={550} height={350} data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
           <defs>
             <linearGradient id="budgetGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#2196f3" stopOpacity={0.9} />
@@ -84,7 +83,6 @@ export default function BudgetExpenseChart({ data }: BudgetExpenseChartProps) {
             animationBegin={200}
           />
         </BarChart>
-        </ResponsiveContainer>
       </Box>
     </Paper>
   );

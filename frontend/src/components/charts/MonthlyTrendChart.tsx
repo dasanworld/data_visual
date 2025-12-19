@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
@@ -53,9 +52,8 @@ export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <Box sx={{ width: '100%', height: 350 }}>
-          <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <Box sx={{ width: '100%', overflowX: 'auto' }}>
+          <LineChart width={700} height={350} data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#2196f3" stopOpacity={0.3} />
@@ -123,7 +121,6 @@ export default function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
               animationBegin={400}
             />
           </LineChart>
-        </ResponsiveContainer>
         </Box>
       )}
     </Paper>

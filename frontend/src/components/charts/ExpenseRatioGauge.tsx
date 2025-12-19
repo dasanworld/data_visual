@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
 interface ExpenseRatioGaugeProps {
@@ -39,9 +39,8 @@ export default function ExpenseRatioGauge({ budget, expenditure }: ExpenseRatioG
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         예산 대비 지출률
       </Typography>
-      <Box sx={{ position: 'relative', height: 250 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+      <Box sx={{ position: 'relative', height: 250, display: 'flex', justifyContent: 'center' }}>
+          <PieChart width={300} height={250}>
             <Pie
               data={data}
               cx="50%"
@@ -58,7 +57,6 @@ export default function ExpenseRatioGauge({ budget, expenditure }: ExpenseRatioG
               <Cell fill="#e0e0e0" />
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
         <Box
           sx={{
             position: 'absolute',

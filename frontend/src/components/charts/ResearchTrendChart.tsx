@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
@@ -38,9 +37,8 @@ export default function ResearchTrendChart({ data }: ResearchTrendChartProps) {
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         연구 성과 트렌드
       </Typography>
-      <Box sx={{ width: '100%', height: 350 }}>
-        <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+      <Box sx={{ width: '100%', overflowX: 'auto' }}>
+        <AreaChart width={550} height={350} data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="colorPapers" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#2196f3" stopOpacity={0.8} />
@@ -93,7 +91,6 @@ export default function ResearchTrendChart({ data }: ResearchTrendChartProps) {
             animationBegin={400}
           />
         </AreaChart>
-        </ResponsiveContainer>
       </Box>
     </Paper>
   );

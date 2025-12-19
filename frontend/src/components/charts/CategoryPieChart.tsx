@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
 interface CategoryData {
@@ -40,9 +40,8 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <Box sx={{ width: '100%', height: 280 }}>
-          <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <PieChart width={300} height={280}>
             <defs>
               {COLORS.map((color, index) => (
                 <linearGradient
@@ -99,7 +98,6 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
               wrapperStyle={{ paddingTop: 8 }}
             />
           </PieChart>
-        </ResponsiveContainer>
         </Box>
       )}
     </Paper>

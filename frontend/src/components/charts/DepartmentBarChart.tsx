@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
@@ -45,9 +44,8 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <Box sx={{ width: '100%', height: 350 }}>
-          <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={topDepartments} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+        <Box sx={{ width: '100%', overflowX: 'auto' }}>
+          <BarChart width={600} height={350} data={topDepartments} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
             <defs>
               <linearGradient id="revenueBarGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#2196f3" stopOpacity={1} />
@@ -98,7 +96,6 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
               animationBegin={200}
             />
           </BarChart>
-        </ResponsiveContainer>
         </Box>
       )}
     </Paper>
