@@ -625,11 +625,7 @@ class TestParsingResearchProject:
 
         for date_str in execution_dates:
             result = parser.normalize_date(date_str)
-            assert (
-                result.startswith("2023")
-                or result.startswith("2024")
-                or result.startswith("2025")
-            )
+            assert result.startswith("2023") or result.startswith("2024") or result.startswith("2025")
 
     def test_project_status_korean_text(self, parser):
         """Test handling Korean status text (집행완료, 처리중)."""

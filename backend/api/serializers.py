@@ -52,9 +52,7 @@ class UploadLogSerializer(serializers.ModelSerializer):
     업로드 이력 Serializer
     """
 
-    uploaded_by_name = serializers.CharField(
-        source="uploaded_by.username", read_only=True, default=""
-    )
+    uploaded_by_name = serializers.CharField(source="uploaded_by.username", read_only=True, default="")
 
     class Meta:
         model = UploadLog

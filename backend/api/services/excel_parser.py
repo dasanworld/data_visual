@@ -186,9 +186,7 @@ class ExcelParser:
             raise ValueError("기준 년월 데이터가 없습니다.")
         return list(reference_dates)
 
-    def parse_dataframe(
-        self, df: pd.DataFrame
-    ) -> tuple[list[PerformanceData], list[str]]:
+    def parse_dataframe(self, df: pd.DataFrame) -> tuple[list[PerformanceData], list[str]]:
         """
         Parse DataFrame rows into PerformanceData objects.
 
@@ -226,27 +224,15 @@ class ExcelParser:
 
         data = {
             "reference_date": self.normalize_date(row.get("reference_date")),
-            "department": (
-                str(row.get("department", "")).strip()
-                if pd.notna(row.get("department"))
-                else ""
-            ),
-            "department_code": (
-                str(row.get("department_code", "")).strip()
-                if pd.notna(row.get("department_code"))
-                else ""
-            ),
+            "department": (str(row.get("department", "")).strip() if pd.notna(row.get("department")) else ""),
+            "department_code": (str(row.get("department_code", "")).strip() if pd.notna(row.get("department_code")) else ""),
             "revenue": self.to_decimal(row.get("revenue", 0)),
             "budget": self.to_decimal(row.get("budget", 0)),
             "expenditure": self.to_decimal(row.get("expenditure", 0)),
             "paper_count": self.to_int(row.get("paper_count", 0)),
             "patent_count": self.to_int(row.get("patent_count", 0)),
             "project_count": self.to_int(row.get("project_count", 0)),
-            "extra_text": (
-                str(row.get("extra_text", "")).strip()
-                if pd.notna(row.get("extra_text"))
-                else ""
-            ),
+            "extra_text": (str(row.get("extra_text", "")).strip() if pd.notna(row.get("extra_text")) else ""),
         }
 
         # Optional fields

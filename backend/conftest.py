@@ -52,9 +52,7 @@ class PerformanceDataFactory(DjangoModelFactory):
     department_code = factory.Sequence(lambda n: f"DEPT{n:03d}")
     revenue = factory.Faker("pydecimal", left_digits=10, right_digits=2, positive=True)
     budget = factory.Faker("pydecimal", left_digits=10, right_digits=2, positive=True)
-    expenditure = factory.Faker(
-        "pydecimal", left_digits=10, right_digits=2, positive=True
-    )
+    expenditure = factory.Faker("pydecimal", left_digits=10, right_digits=2, positive=True)
     paper_count = factory.Faker("pyint", min_value=0, max_value=50)
     patent_count = factory.Faker("pyint", min_value=0, max_value=10)
     project_count = factory.Faker("pyint", min_value=0, max_value=20)

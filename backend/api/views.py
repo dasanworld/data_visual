@@ -91,9 +91,7 @@ class ExcelUploadView(APIView):
                     PerformanceData.objects.filter(reference_date=ref_date_str).delete()
 
                 # 새 데이터 일괄 삽입
-                created_objects = PerformanceData.objects.bulk_create(
-                    performance_objects, batch_size=1000
-                )
+                created_objects = PerformanceData.objects.bulk_create(performance_objects, batch_size=1000)
 
                 # 업로드 이력 기록
                 UploadLog.objects.create(
@@ -236,9 +234,7 @@ class DashboardSummaryView(APIView):
                 "monthly_trend": list(monthly_trend),
                 "department_ranking": list(department_ranking),
                 "reference_dates": list(
-                    PerformanceData.objects.values_list("reference_date", flat=True)
-                    .distinct()
-                    .order_by("-reference_date")
+                    PerformanceData.objects.values_list("reference_date", flat=True).distinct().order_by("-reference_date")
                 ),
             }
         )

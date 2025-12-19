@@ -17,23 +17,13 @@ class PerformanceData(models.Model):
     )
 
     # 부서/조직 정보
-    department = models.CharField(
-        max_length=100, verbose_name="부서명", blank=True, default=""
-    )
-    department_code = models.CharField(
-        max_length=20, verbose_name="부서코드", blank=True, default=""
-    )
+    department = models.CharField(max_length=100, verbose_name="부서명", blank=True, default="")
+    department_code = models.CharField(max_length=20, verbose_name="부서코드", blank=True, default="")
 
     # 실적 관련 필드
-    revenue = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, verbose_name="매출액"
-    )
-    budget = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, verbose_name="예산"
-    )
-    expenditure = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, verbose_name="지출액"
-    )
+    revenue = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="매출액")
+    budget = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="예산")
+    expenditure = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name="지출액")
 
     # 연구 실적 관련 필드 (대학 특성)
     paper_count = models.IntegerField(default=0, verbose_name="논문수")
@@ -41,12 +31,8 @@ class PerformanceData(models.Model):
     project_count = models.IntegerField(default=0, verbose_name="프로젝트수")
 
     # 추가 지표 (확장용)
-    extra_metric_1 = models.DecimalField(
-        max_digits=15, decimal_places=2, null=True, blank=True, verbose_name="추가지표1"
-    )
-    extra_metric_2 = models.DecimalField(
-        max_digits=15, decimal_places=2, null=True, blank=True, verbose_name="추가지표2"
-    )
+    extra_metric_1 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name="추가지표1")
+    extra_metric_2 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name="추가지표2")
     extra_text = models.TextField(blank=True, default="", verbose_name="비고")
 
     # 메타 필드
