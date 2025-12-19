@@ -227,7 +227,11 @@ class DashboardSummaryView(APIView):
             queryset.values("department")
             .annotate(
                 total_revenue=Sum("revenue"),
+                total_budget=Sum("budget"),
+                total_expenditure=Sum("expenditure"),
                 total_papers=Sum("paper_count"),
+                total_patents=Sum("patent_count"),
+                total_projects=Sum("project_count"),
             )
             .order_by("-total_revenue")[:10]
         )

@@ -55,7 +55,11 @@ export interface DashboardSummary {
   department_ranking: Array<{
     department: string;
     total_revenue: number;
+    total_budget: number;
+    total_expenditure: number;
     total_papers: number;
+    total_patents: number;
+    total_projects: number;
   }>;
   reference_dates: string[];
 }

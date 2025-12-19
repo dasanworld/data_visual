@@ -29,9 +29,8 @@ const getRankColor = (rank: number) => {
 };
 
 export default function TopDepartmentsCard({ data }: TopDepartmentsCardProps) {
-  const topDepartments = data
-    .filter(d => (d.total_revenue || 0) > 0)
-    .slice(0, 5);
+  // Show top 5 departments, don't filter out zero values to show all data
+  const topDepartments = data.slice(0, 5);
 
   const maxRevenue = Math.max(...topDepartments.map(d => d.total_revenue || 0), 1);
 

@@ -4,8 +4,8 @@ import { Paper, Typography, Box } from '@mui/material';
 interface BudgetExpenseData {
   department: string;
   total_revenue?: number;
-  budget?: number;
-  expenditure?: number;
+  total_budget?: number;
+  total_expenditure?: number;
 }
 
 interface BudgetExpenseChartProps {
@@ -26,16 +26,27 @@ export default function BudgetExpenseChart({ data }: BudgetExpenseChartProps) {
   // Transform data for chart
   const chartData = data.slice(0, 8).map(item => ({
     name: item.department.length > 6 ? item.department.slice(0, 6) + '...' : item.department,
-    예산: item.budget || 0,
-    지출: item.expenditure || 0,
+    예산: item.total_budget || 0,
+    지출: item.total_expenditure || 0,
     매출: item.total_revenue || 0,
   }));
+
+  const hasData = chartData.some(item => item.예산 > 0 || item.지출 > 0);
 
   return (
     <Paper sx={{ p: 3, minHeight: 420 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         부서별 예산 vs 지출
       </Typography>
+      {chartData.length === 0 ? (
+        <Box textAlign="center" py={8} color="text.secondary">
+          조건에 맞는 데이터가 없습니다.
+        </Box>
+      ) : !hasData ? (
+        <Box textAlign="center" py={8} color="text.secondary">
+          예산/지출 데이터가 없습니다.
+        </Box>
+      ) : (
       <Box sx={{ width: '100%', overflowX: 'auto' }}>
         <BarChart width={550} height={350} data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
           <defs>
@@ -84,6 +95,7 @@ export default function BudgetExpenseChart({ data }: BudgetExpenseChartProps) {
           />
         </BarChart>
       </Box>
+      )}
     </Paper>
   );
 }

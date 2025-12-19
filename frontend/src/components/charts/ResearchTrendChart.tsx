@@ -21,9 +21,8 @@ interface ResearchTrendChartProps {
 }
 
 export default function ResearchTrendChart({ data }: ResearchTrendChartProps) {
-  // Filter data with actual values and sort by date
+  // Get last 12 months of data without filtering out zero values
   const chartData = data
-    .filter(item => (item.papers || 0) + (item.patents || 0) + (item.projects || 0) > 0)
     .slice(-12) // Last 12 months
     .map(item => ({
       date: item.reference_date.slice(2), // YY-MM format
@@ -32,11 +31,22 @@ export default function ResearchTrendChart({ data }: ResearchTrendChartProps) {
       프로젝트: item.projects || 0,
     }));
 
+  const hasData = chartData.some(item => item.논문 > 0 || item.특허 > 0 || item.프로젝트 > 0);
+
   return (
     <Paper sx={{ p: 3, minHeight: 420 }}>
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
         연구 성과 트렌드
       </Typography>
+      {chartData.length === 0 ? (
+        <Box textAlign="center" py={8} color="text.secondary">
+          조건에 맞는 데이터가 없습니다.
+        </Box>
+      ) : !hasData ? (
+        <Box textAlign="center" py={8} color="text.secondary">
+          연구 성과 데이터(논문/특허/프로젝트)가 없습니다.
+        </Box>
+      ) : (
       <Box sx={{ width: '100%', overflowX: 'auto' }}>
         <AreaChart width={550} height={350} data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
           <defs>
@@ -92,6 +102,7 @@ export default function ResearchTrendChart({ data }: ResearchTrendChartProps) {
           />
         </AreaChart>
       </Box>
+      )}
     </Paper>
   );
 }
