@@ -1,8 +1,32 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Paper, Typography, Button, Alert, Backdrop, CircularProgress } from '@mui/material';
-import { CloudUpload } from '@mui/icons-material';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Alert,
+  Backdrop,
+  CircularProgress,
+  Divider,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+} from '@mui/material';
+import { CloudUpload, Download, Description } from '@mui/icons-material';
 import { performanceApi } from '../services/performanceApi';
+
+// 샘플 데이터 파일 목록
+const SAMPLE_FILES = [
+  { name: 'sample_data.xlsx', description: '기본 샘플 데이터 (5개 부서, Excel)' },
+  { name: 'sample_data.csv', description: '기본 샘플 데이터 (5개 부서, CSV)' },
+  { name: 'department_kpi.xlsx', description: '부서별 KPI 데이터' },
+  { name: 'publication_list.xlsx', description: '연구 논문 목록' },
+  { name: 'research_project_data.xlsx', description: '연구 프로젝트 데이터' },
+  { name: 'large_dataset.xlsx', description: '대용량 데이터셋 (1000개 행)' },
+];
 
 export default function Upload() {
   const navigate = useNavigate();
@@ -20,12 +44,12 @@ export default function Upload() {
   // File validation
   const validateFile = (file: File): string | null => {
     // 1. File extension validation
-    const validExtensions = ['.xlsx', '.xls'];
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
     const fileName = file.name.toLowerCase();
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
 
     if (!hasValidExtension) {
-      return '지원하지 않는 파일 형식입니다. .xlsx 또는 .xls 파일을 업로드하세요.';
+      return '지원하지 않는 파일 형식입니다. .xlsx, .xls 또는 .csv 파일을 업로드하세요.';
     }
 
     // 2. File size validation (10MB)
@@ -109,10 +133,10 @@ export default function Upload() {
         text: `업로드 완료! ${response.data.created_count}개의 데이터가 저장되었습니다.`,
       });
 
-      // Redirect to dashboard after 3 seconds
+      // Redirect to data table after 2 seconds to show uploaded data
       setTimeout(() => {
-        navigate('/dashboard');
-      }, 3000);
+        navigate('/data');
+      }, 2000);
     } catch (error) {
       const errorMessage =
         (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
@@ -155,7 +179,7 @@ export default function Upload() {
             파일을 여기에 드래그하거나 버튼을 클릭하세요
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            지원 형식: .xlsx, .xls (최대 10MB)
+            지원 형식: .xlsx, .xls, .csv (최대 10MB)
           </Typography>
         </Box>
 
@@ -164,7 +188,7 @@ export default function Upload() {
           type="file"
           ref={fileInputRef}
           style={{ display: 'none' }}
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,.csv"
           onChange={handleFileInputChange}
         />
 
@@ -197,6 +221,35 @@ export default function Upload() {
         >
           {uploading ? '업로드 중...' : '업로드 시작'}
         </Button>
+      </Paper>
+
+      {/* Sample Data Section */}
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          <Download sx={{ verticalAlign: 'middle', mr: 1 }} />
+          샘플 데이터 다운로드
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          테스트용 샘플 엑셀 파일을 다운로드하여 업로드해보세요.
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <List dense>
+          {SAMPLE_FILES.map(file => (
+            <ListItem key={file.name} disablePadding>
+              <ListItemButton
+                component="a"
+                href={`/samples/${file.name}`}
+                download={file.name}
+              >
+                <ListItemIcon>
+                  <Description color="primary" />
+                </ListItemIcon>
+                <ListItemText primary={file.name} secondary={file.description} />
+                <Download fontSize="small" color="action" />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
       </Paper>
 
       {/* Success/Error message */}

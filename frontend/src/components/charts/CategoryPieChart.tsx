@@ -1,4 +1,3 @@
-import type { PieLabelRenderProps, TooltipProps } from 'recharts';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Paper, Typography, Box } from '@mui/material';
 
@@ -12,7 +11,14 @@ interface CategoryPieChartProps {
   data: CategoryData[];
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+const COLORS = [
+  { start: '#2196f3', end: '#1565c0' },
+  { start: '#4caf50', end: '#2e7d32' },
+  { start: '#ff9800', end: '#e65100' },
+  { start: '#e91e63', end: '#ad1457' },
+  { start: '#9c27b0', end: '#6a1b9a' },
+  { start: '#00bcd4', end: '#00838f' },
+];
 
 export default function CategoryPieChart({ data }: CategoryPieChartProps) {
   // Calculate percentages
@@ -24,49 +30,73 @@ export default function CategoryPieChart({ data }: CategoryPieChartProps) {
   }));
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        카테고리별 분포
+    <Paper sx={{ p: 3, height: '100%' }}>
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+        연구 성과 분포
       </Typography>
 
       {chartData.length === 0 ? (
-        <Box textAlign="center" py={4} color="text.secondary">
+        <Box textAlign="center" py={8} color="text.secondary">
           조건에 맞는 데이터가 없습니다.
         </Box>
       ) : (
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={280}>
           <PieChart>
+            <defs>
+              {COLORS.map((color, index) => (
+                <linearGradient
+                  key={`pieGradient-${index}`}
+                  id={`pieGradient-${index}`}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor={color.start} stopOpacity={1} />
+                  <stop offset="100%" stopColor={color.end} stopOpacity={0.8} />
+                </linearGradient>
+              ))}
+            </defs>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              labelLine={false}
-              label={(props: PieLabelRenderProps) => {
-                const payload = props.payload as CategoryData;
-                return `${payload.name}: ${payload.percentage}%`;
-              }}
-              outerRadius={120}
-              fill="#8884d8"
+              innerRadius={50}
+              outerRadius={90}
+              paddingAngle={3}
               dataKey="value"
+              animationDuration={1000}
+              label={({ name, payload }) =>
+                `${name} ${(payload as CategoryData).percentage || 0}%`
+              }
+              labelLine={{ stroke: '#999', strokeWidth: 1 }}
             >
               {chartData.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell
+                  key={`cell-${index}`}
+                  fill={`url(#pieGradient-${index % COLORS.length})`}
+                  stroke="none"
+                />
               ))}
             </Pie>
             <Tooltip
-              formatter={(
-                value: number | undefined,
-                _name: string | undefined,
-                props: TooltipProps<number, string>
-              ) => {
-                const payload = props.payload as unknown as CategoryData;
-                return [
-                  value !== undefined ? `${value}건 (${payload.percentage}%)` : '',
-                  payload.name || '',
-                ];
+              formatter={(value: number | undefined, name: string | undefined) => [
+                value !== undefined ? `${value}건` : '',
+                name || '',
+              ]}
+              contentStyle={{
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: 8,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                border: 'none',
               }}
             />
-            <Legend verticalAlign="bottom" height={36} />
+            <Legend
+              verticalAlign="bottom"
+              height={36}
+              iconType="circle"
+              wrapperStyle={{ paddingTop: 8 }}
+            />
           </PieChart>
         </ResponsiveContainer>
       )}

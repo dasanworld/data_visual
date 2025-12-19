@@ -1,7 +1,7 @@
 """
-Excel Parser Service
+Excel/CSV Parser Service
 
-Handles Excel file parsing and data transformation for PerformanceData model.
+Handles Excel and CSV file parsing and data transformation for PerformanceData model.
 Separated from views for better testability.
 """
 
@@ -77,12 +77,13 @@ class ExcelParser:
         "비고": "extra_text",
     }
 
-    def read_excel(self, file_content: bytes) -> pd.DataFrame:
+    def read_excel(self, file_content: bytes, filename: str = "") -> pd.DataFrame:
         """
-        Read Excel file content into a pandas DataFrame.
+        Read Excel or CSV file content into a pandas DataFrame.
 
         Args:
-            file_content: Raw bytes of the Excel file
+            file_content: Raw bytes of the file
+            filename: Original filename to determine file type
 
         Returns:
             DataFrame with normalized column names
@@ -91,13 +92,28 @@ class ExcelParser:
             pd.errors.EmptyDataError: If file is empty
             ValueError: If file cannot be parsed
         """
-        df = pd.read_excel(io.BytesIO(file_content))
+        # Determine file type from filename
+        is_csv = filename.lower().endswith(".csv")
+
+        if is_csv:
+            # Try different encodings for CSV
+            for encoding in ["utf-8", "cp949", "euc-kr", "latin1"]:
+                try:
+                    df = pd.read_csv(io.BytesIO(file_content), encoding=encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                raise ValueError("CSV 파일 인코딩을 인식할 수 없습니다.")
+        else:
+            df = pd.read_excel(io.BytesIO(file_content))
 
         if df.empty:
-            raise ValueError("엑셀 파일에 데이터가 없습니다.")
+            raise ValueError("파일에 데이터가 없습니다.")
 
-        # Normalize column names (strip whitespace)
+        # Normalize column names (strip whitespace and remove BOM)
         df.columns = df.columns.str.strip()
+        df.columns = df.columns.str.replace("\ufeff", "", regex=False)  # Remove BOM character
 
         # Apply column mapping with priority handling
         # When multiple columns map to the same target, prioritize and merge them

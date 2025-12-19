@@ -6,17 +6,21 @@ Business logic is delegated to services layer.
 """
 
 import pandas as pd
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Avg, Count, Sum
 from rest_framework import status, viewsets
 from rest_framework.parsers import MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import PerformanceData, UploadLog
 from .serializers import PerformanceDataSerializer, UploadLogSerializer
 from .services import ExcelParser
+
+# 개발 모드에서는 인증 없이 접근 허용
+API_PERMISSION = [AllowAny] if settings.DEBUG else [IsAuthenticated]
 
 
 class ExcelUploadView(APIView):
@@ -29,7 +33,7 @@ class ExcelUploadView(APIView):
     """
 
     parser_classes = [MultiPartParser]
-    permission_classes = [IsAuthenticated]
+    permission_classes = API_PERMISSION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -57,16 +61,16 @@ class ExcelUploadView(APIView):
 
         # 파일 확장자 검사
         filename = file.name.lower()
-        if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
+        if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv")):
             return Response(
-                {"error": "엑셀 파일(.xlsx, .xls)만 업로드 가능합니다."},
+                {"error": "엑셀 또는 CSV 파일(.xlsx, .xls, .csv)만 업로드 가능합니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            # 엑셀 파일 읽기 및 파싱 (서비스 레이어 사용)
+            # 엑셀/CSV 파일 읽기 및 파싱 (서비스 레이어 사용)
             file_content = file.read()
-            df = self.parser.read_excel(file_content)
+            df = self.parser.read_excel(file_content, filename=file.name)
 
             # 데이터 유효성 검증
             self.parser.validate_dataframe(df)
@@ -149,7 +153,7 @@ class PerformanceDataViewSet(viewsets.ModelViewSet):
 
     queryset = PerformanceData.objects.all()
     serializer_class = PerformanceDataSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = API_PERMISSION
 
     def get_queryset(self):
         queryset = PerformanceData.objects.all()
@@ -174,7 +178,7 @@ class UploadLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = UploadLog.objects.all()
     serializer_class = UploadLogSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = API_PERMISSION
 
 
 class DashboardSummaryView(APIView):
@@ -185,7 +189,7 @@ class DashboardSummaryView(APIView):
     - GET /api/summary/?reference_date=2024-05 : 특정 월 요약
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = API_PERMISSION
 
     def get(self, request):
         reference_date = request.query_params.get("reference_date")
