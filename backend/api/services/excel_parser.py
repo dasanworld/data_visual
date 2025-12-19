@@ -80,6 +80,9 @@ class ExcelParser:
         "수입": "revenue",
         "수입액": "revenue",
         "금액": "revenue",
+        "기술이전 수입액": "revenue",  # Technology transfer income
+        "연간 기술이전 수입액": "revenue",
+        "연간 기술이전 수입액 (억원)": "revenue",
         "예산": "budget",
         "예산액": "budget",
         "budget": "budget",
@@ -118,11 +121,16 @@ class ExcelParser:
         "연구지표": "extra_metric_2",  # Department KPI research metric
         "지표1": "extra_metric_1",  # Generic metric 1
         "지표2": "extra_metric_2",  # Generic metric 2
+        "졸업생 취업률 (%)": "extra_metric_1",  # Employment rate
+        "전임교원 수 (명)": "extra_metric_2",  # Full-time faculty count
+        "국제학술대회 개최 횟수": "project_count",  # Conference count as project
         # Text fields
         "비고": "extra_text",
         "메모": "extra_text",
         "note": "extra_text",
         "notes": "extra_text",
+        "과제명": "extra_text",  # Project name
+        "논문제목": "extra_text",  # Paper title
     }
 
     # Keywords to auto-detect date columns

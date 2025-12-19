@@ -50,9 +50,10 @@ export default function BudgetExpenseChart({ data }: BudgetExpenseChartProps) {
       <Box sx={{ width: '100%', overflowX: 'auto' }}>
         <BarChart width={550} height={350} data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
           <defs>
+            {/* 예산: Green (#4caf50), 지출: Red (#f44336), 매출: Blue (#2196f3) */}
             <linearGradient id="budgetGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#2196f3" stopOpacity={0.9} />
-              <stop offset="95%" stopColor="#2196f3" stopOpacity={0.6} />
+              <stop offset="5%" stopColor="#4caf50" stopOpacity={0.9} />
+              <stop offset="95%" stopColor="#4caf50" stopOpacity={0.6} />
             </linearGradient>
             <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#f44336" stopOpacity={0.9} />

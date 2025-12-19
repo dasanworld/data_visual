@@ -165,7 +165,7 @@ export default function Dashboard() {
             title="총 지출"
             value={formatCurrency(summaryData.total_expenditure || 0)}
             icon={Receipt}
-            color="#ff9800"
+            color="#f44336"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>

@@ -79,7 +79,7 @@ export default function ExpenseRatioGauge({ budget, expenditure }: ExpenseRatioG
           <Typography variant="body2" color="text.secondary">
             총 예산
           </Typography>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2196f3' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#4caf50' }}>
             {formatCurrency(budget)}
           </Typography>
         </Box>
