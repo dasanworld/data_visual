@@ -53,6 +53,60 @@ class PerformanceData(models.Model):
         return f"{self.reference_date} - {self.department}"
 
 
+class StudentRoster(models.Model):
+    """
+    학생 명단 모델
+    - student_roster.csv 데이터 저장
+    """
+
+    student_id = models.CharField(max_length=20, unique=True, verbose_name="학번")
+    name = models.CharField(max_length=100, verbose_name="이름")
+    college = models.CharField(max_length=100, verbose_name="단과대학", blank=True, default="")
+    department = models.CharField(max_length=100, verbose_name="학과", blank=True, default="")
+    grade = models.IntegerField(default=0, verbose_name="학년")
+    program_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("학사", "학사"),
+            ("석사", "석사"),
+            ("박사", "박사"),
+        ],
+        default="학사",
+        verbose_name="과정구분",
+    )
+    enrollment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("재학", "재학"),
+            ("휴학", "휴학"),
+            ("졸업", "졸업"),
+            ("제적", "제적"),
+        ],
+        default="재학",
+        verbose_name="학적상태",
+    )
+    gender = models.CharField(max_length=10, verbose_name="성별", blank=True, default="")
+    admission_year = models.IntegerField(null=True, blank=True, verbose_name="입학년도")
+    advisor = models.CharField(max_length=100, verbose_name="지도교수", blank=True, default="")
+    email = models.EmailField(verbose_name="이메일", blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+
+    class Meta:
+        verbose_name = "학생 명단"
+        verbose_name_plural = "학생 명단"
+        ordering = ["student_id"]
+        indexes = [
+            models.Index(fields=["department"]),
+            models.Index(fields=["enrollment_status"]),
+            models.Index(fields=["program_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student_id} - {self.name}"
+
+
 class UploadLog(models.Model):
     """
     엑셀 업로드 이력 관리 모델

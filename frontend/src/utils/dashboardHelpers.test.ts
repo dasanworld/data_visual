@@ -23,6 +23,8 @@ describe('applyFilters', () => {
         budget: 120000,
         expenditure: 80000,
         papers: 5,
+        patents: 2,
+        projects: 3,
       },
       {
         reference_date: '2024-02',
@@ -30,6 +32,8 @@ describe('applyFilters', () => {
         budget: 180000,
         expenditure: 120000,
         papers: 7,
+        patents: 3,
+        projects: 4,
       },
       {
         reference_date: '2024-03',
@@ -37,6 +41,8 @@ describe('applyFilters', () => {
         budget: 220000,
         expenditure: 150000,
         papers: 10,
+        patents: 3,
+        projects: 5,
       },
     ],
     department_ranking: [

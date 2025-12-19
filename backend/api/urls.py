@@ -5,12 +5,14 @@ from .views import (
     DashboardSummaryView,
     ExcelUploadView,
     PerformanceDataViewSet,
+    StudentRosterViewSet,
     UploadLogViewSet,
 )
 
 router = DefaultRouter()
 router.register(r"data", PerformanceDataViewSet, basename="performance-data")
 router.register(r"logs", UploadLogViewSet, basename="upload-logs")
+router.register(r"students", StudentRosterViewSet, basename="student-roster")
 
 urlpatterns = [
     # 엑셀 업로드 엔드포인트

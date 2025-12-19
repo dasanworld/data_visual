@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from api.models import PerformanceData
+from api.models import PerformanceData, StudentRoster
 
 
 class Command(BaseCommand):
@@ -29,14 +29,25 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # Determine public folder path
-        public_path = os.path.join(settings.BASE_DIR.parent, "public")
-        if not os.path.exists(public_path):
-            # Try frontend public path
-            public_path = os.path.join(settings.BASE_DIR.parent, "frontend", "public")
+        # Determine public folder path - check multiple locations
+        possible_paths = [
+            os.path.join(settings.BASE_DIR.parent, "public"),
+            os.path.join(settings.BASE_DIR.parent, "frontend", "public"),
+            os.path.join(settings.BASE_DIR.parent, "frontend", "public", "samples"),
+        ]
 
-        if not os.path.exists(public_path):
-            self.stderr.write(self.style.ERROR(f"Public folder not found: {public_path}"))
+        public_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                # Check if the folder contains expected CSV files
+                if os.path.exists(os.path.join(path, "department_kpi.csv")) or \
+                   os.path.exists(os.path.join(path, "publication_list.csv")) or \
+                   os.path.exists(os.path.join(path, "student_roster.csv")):
+                    public_path = path
+                    break
+
+        if not public_path:
+            self.stderr.write(self.style.ERROR("Public folder with CSV files not found"))
             return
 
         self.stdout.write(f"Loading data from: {public_path}")
@@ -78,11 +89,20 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.WARNING(f"File not found: {project_file}"))
 
+        # Load student roster data
+        student_file = os.path.join(public_path, "student_roster.csv")
+        student_objects = []
+        if os.path.exists(student_file):
+            student_objects = self.load_student_roster(student_file)
+        else:
+            self.stdout.write(self.style.WARNING(f"File not found: {student_file}"))
+
         # Save to database
         with transaction.atomic():
             if options["clear"]:
-                deleted_count = PerformanceData.objects.all().delete()[0]
-                self.stdout.write(f"Cleared {deleted_count} existing records")
+                perf_deleted = PerformanceData.objects.all().delete()[0]
+                student_deleted = StudentRoster.objects.all().delete()[0]
+                self.stdout.write(f"Cleared {perf_deleted} performance records, {student_deleted} student records")
 
             # Create PerformanceData objects
             objects_to_create = []
@@ -103,11 +123,22 @@ class Command(BaseCommand):
                 )
                 objects_to_create.append(obj)
 
-            # Bulk create
+            # Bulk create performance data
             created = PerformanceData.objects.bulk_create(objects_to_create, batch_size=500)
             self.stdout.write(
                 self.style.SUCCESS(f"Successfully created {len(created)} performance records")
             )
+
+            # Create StudentRoster records
+            if student_objects:
+                # Delete existing students first (using update_or_create would be slow)
+                existing_ids = [s.student_id for s in student_objects]
+                StudentRoster.objects.filter(student_id__in=existing_ids).delete()
+
+                created_students = StudentRoster.objects.bulk_create(student_objects, batch_size=500)
+                self.stdout.write(
+                    self.style.SUCCESS(f"Successfully created {len(created_students)} student records")
+                )
 
     def normalize_date(self, value) -> str:
         """Normalize date to YYYY-MM format."""
@@ -237,3 +268,60 @@ class Command(BaseCommand):
                 aggregated_data[key]["expenditure"] += Decimal(str(expenditure))
 
         self.stdout.write(f"  Loaded {len(df)} project execution records")
+
+    def load_student_roster(self, filepath: str) -> list:
+        """
+        Load student roster data.
+        Columns: 학번, 이름, 단과대학, 학과, 학년, 과정구분, 학적상태, 성별, 입학년도, 지도교수, 이메일
+        """
+        self.stdout.write(f"Loading: {filepath}")
+        df = pd.read_csv(filepath, encoding="utf-8")
+
+        # Clean column names (remove BOM if present)
+        df.columns = df.columns.str.replace("\ufeff", "").str.strip()
+
+        student_objects = []
+        for _, row in df.iterrows():
+            student_id = str(row.get("학번", "")).strip()
+            name = str(row.get("이름", "")).strip()
+
+            if not student_id or not name:
+                continue
+
+            # Parse admission_year
+            admission_year = row.get("입학년도")
+            if pd.notna(admission_year):
+                try:
+                    admission_year = int(admission_year)
+                except (ValueError, TypeError):
+                    admission_year = None
+            else:
+                admission_year = None
+
+            # Parse grade
+            grade = row.get("학년", 0)
+            if pd.notna(grade):
+                try:
+                    grade = int(grade)
+                except (ValueError, TypeError):
+                    grade = 0
+            else:
+                grade = 0
+
+            obj = StudentRoster(
+                student_id=student_id,
+                name=name,
+                college=str(row.get("단과대학", "")).strip(),
+                department=str(row.get("학과", "")).strip(),
+                grade=grade,
+                program_type=str(row.get("과정구분", "학사")).strip() or "학사",
+                enrollment_status=str(row.get("학적상태", "재학")).strip() or "재학",
+                gender=str(row.get("성별", "")).strip(),
+                admission_year=admission_year,
+                advisor=str(row.get("지도교수", "")).strip(),
+                email=str(row.get("이메일", "")).strip(),
+            )
+            student_objects.append(obj)
+
+        self.stdout.write(f"  Loaded {len(student_objects)} student records")
+        return student_objects

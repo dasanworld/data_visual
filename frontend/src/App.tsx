@@ -7,6 +7,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import DataTable from './pages/DataTable';
+import StudentTable from './pages/StudentTable';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/upload" element={<Upload />} />
             <Route path="/data-table" element={<DataTable />} />
+            <Route path="/students" element={<StudentTable />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

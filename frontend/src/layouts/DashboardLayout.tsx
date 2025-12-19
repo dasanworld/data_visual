@@ -12,7 +12,7 @@ import {
   ListItemText,
   IconButton,
 } from '@mui/material';
-import { Dashboard, UploadFile, TableChart, Logout, Menu as MenuIcon } from '@mui/icons-material';
+import { Dashboard, UploadFile, TableChart, Logout, Menu as MenuIcon, People } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 
 const DRAWER_WIDTH = 240;
@@ -21,6 +21,7 @@ const menuItems = [
   { text: '대시보드', icon: <Dashboard />, path: '/dashboard' },
   { text: '데이터 업로드', icon: <UploadFile />, path: '/upload' },
   { text: '데이터 테이블', icon: <TableChart />, path: '/data-table' },
+  { text: '학생 명단', icon: <People />, path: '/students' },
 ];
 
 export default function DashboardLayout() {

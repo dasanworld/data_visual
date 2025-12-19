@@ -45,7 +45,7 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
         </Box>
       ) : (
         <Box sx={{ width: '100%', overflowX: 'auto' }}>
-          <BarChart width={600} height={350} data={topDepartments} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+          <BarChart width={600} height={350} data={topDepartments} margin={{ top: 20, right: 50, left: 20, bottom: 80 }}>
             <defs>
               <linearGradient id="revenueBarGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#2196f3" stopOpacity={1} />
@@ -65,10 +65,23 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
               height={100}
               stroke="#999"
             />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={formatValue} stroke="#999" />
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 11 }}
+              tickFormatter={formatValue}
+              stroke="#2196f3"
+              label={{ value: '매출액', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#2196f3', fontSize: 11 } }}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fontSize: 11 }}
+              stroke="#ff9800"
+              label={{ value: '논문 수', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#ff9800', fontSize: 11 } }}
+            />
             <Tooltip
               formatter={(value: number | undefined, name: string | undefined) => [
-                value !== undefined ? formatValue(value) : '',
+                value !== undefined ? (name === '총 매출액' ? formatValue(value) : value.toLocaleString()) : '',
                 name || '',
               ]}
               contentStyle={{
@@ -81,6 +94,7 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
             />
             <Legend wrapperStyle={{ paddingTop: 16 }} iconType="circle" />
             <Bar
+              yAxisId="left"
               dataKey="total_revenue"
               name="총 매출액"
               fill="url(#revenueBarGradient)"
@@ -88,6 +102,7 @@ export default function DepartmentBarChart({ data }: DepartmentBarChartProps) {
               animationDuration={1000}
             />
             <Bar
+              yAxisId="right"
               dataKey="total_papers"
               name="총 논문 수"
               fill="url(#papersBarGradient)"

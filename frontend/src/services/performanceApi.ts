@@ -1,5 +1,5 @@
 import api from './api';
-import type { PerformanceData, PaginatedResponse, UploadResponse, DashboardSummary, UploadLog } from '../types';
+import type { PerformanceData, PaginatedResponse, UploadResponse, DashboardSummary, UploadLog, StudentRoster } from '../types';
 
 export const performanceApi = {
   // Get all data with optional filters (paginated)
@@ -28,4 +28,15 @@ export const performanceApi = {
 
   // Get upload logs
   getLogs: () => api.get<UploadLog[]>('/logs/'),
+
+  // Get student roster data
+  getStudents: (params?: {
+    department?: string;
+    enrollment_status?: string;
+    program_type?: string;
+    college?: string;
+  }) => api.get<PaginatedResponse<StudentRoster>>('/students/', { params }),
+
+  // Get single student by ID
+  getStudentById: (id: number) => api.get<StudentRoster>(`/students/${id}/`),
 };

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import PerformanceData, UploadLog
+from .models import PerformanceData, StudentRoster, UploadLog
 
 
 class PerformanceDataSerializer(serializers.ModelSerializer):
@@ -45,6 +45,32 @@ class PerformanceDataListSerializer(serializers.ModelSerializer):
             "budget",
             "paper_count",
         ]
+
+
+class StudentRosterSerializer(serializers.ModelSerializer):
+    """
+    학생 명단 Serializer
+    """
+
+    class Meta:
+        model = StudentRoster
+        fields = [
+            "id",
+            "student_id",
+            "name",
+            "college",
+            "department",
+            "grade",
+            "program_type",
+            "enrollment_status",
+            "gender",
+            "admission_year",
+            "advisor",
+            "email",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class UploadLogSerializer(serializers.ModelSerializer):

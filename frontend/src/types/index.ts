@@ -51,6 +51,8 @@ export interface DashboardSummary {
     budget: number;
     expenditure: number;
     papers: number;
+    patents: number;
+    projects: number;
   }>;
   department_ranking: Array<{
     department: string;
@@ -74,4 +76,22 @@ export interface UploadLog {
   error_message: string;
   uploaded_by_name: string;
   created_at: string;
+}
+
+// Student roster type
+export interface StudentRoster {
+  id: number;
+  student_id: string;
+  name: string;
+  college: string;
+  department: string;
+  grade: number;
+  program_type: '학사' | '석사' | '박사';
+  enrollment_status: '재학' | '휴학' | '졸업' | '제적';
+  gender: string;
+  admission_year: number | null;
+  advisor: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
 }

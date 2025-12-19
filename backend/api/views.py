@@ -15,8 +15,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import PerformanceData, UploadLog
-from .serializers import PerformanceDataSerializer, UploadLogSerializer
+from .models import PerformanceData, StudentRoster, UploadLog
+from .serializers import PerformanceDataSerializer, StudentRosterSerializer, UploadLogSerializer
 from .services import ExcelParser
 
 # 개발 모드에서는 인증 없이 접근 허용
@@ -181,6 +181,46 @@ class UploadLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = API_PERMISSION
 
 
+class StudentRosterViewSet(viewsets.ModelViewSet):
+    """
+    학생 명단 CRUD API
+
+    - GET /api/students/ : 전체 목록 조회
+    - GET /api/students/?department=컴퓨터공학과 : 학과 필터
+    - GET /api/students/?enrollment_status=재학 : 학적상태 필터
+    - GET /api/students/{id}/ : 단일 조회
+    """
+
+    queryset = StudentRoster.objects.all()
+    serializer_class = StudentRosterSerializer
+    permission_classes = API_PERMISSION
+
+    def get_queryset(self):
+        queryset = StudentRoster.objects.all()
+
+        # 학과 필터링
+        department = self.request.query_params.get("department")
+        if department:
+            queryset = queryset.filter(department__icontains=department)
+
+        # 학적상태 필터링
+        enrollment_status = self.request.query_params.get("enrollment_status")
+        if enrollment_status:
+            queryset = queryset.filter(enrollment_status=enrollment_status)
+
+        # 과정구분 필터링
+        program_type = self.request.query_params.get("program_type")
+        if program_type:
+            queryset = queryset.filter(program_type=program_type)
+
+        # 단과대학 필터링
+        college = self.request.query_params.get("college")
+        if college:
+            queryset = queryset.filter(college__icontains=college)
+
+        return queryset
+
+
 class DashboardSummaryView(APIView):
     """
     대시보드 요약 데이터 API
@@ -237,6 +277,8 @@ class DashboardSummaryView(APIView):
                 budget=Sum("budget"),
                 expenditure=Sum("expenditure"),
                 papers=Sum("paper_count"),
+                patents=Sum("patent_count"),
+                projects=Sum("project_count"),
             )
             .order_by("reference_date")
         )
