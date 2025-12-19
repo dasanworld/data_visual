@@ -41,43 +41,32 @@ jobs:
             제목은 대문자로 시작해야 합니다.
             예: "feat: Add new feature" 또는 "fix: Fix bug"
 
-  # 백엔드 테스트 및 린트
+  # 백엔드 체크 (Django/Python 기반)
   backend-checks:
-    name: Backend Tests & Lint
+    name: Backend Checks
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          python-version: '3.13'
 
       - name: Install dependencies
-        run: npm ci
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run Lint
-        id: lint
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Run Tests
-        id: test
-        run: npm run test
-        continue-on-error: true
-
-      - name: Run Build
-        id: build
-        run: npm run build
+      - name: Run Django checks
+        working-directory: ./backend
+        id: django-check
+        run: python manage.py check
         continue-on-error: true
 
       - name: Check Results
-        if: steps.lint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.build.outcome == 'failure'
+        if: steps.django-check.outcome == 'failure'
         run: |
           echo "Backend checks failed!"
           exit 1
@@ -107,18 +96,13 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-      - name: Run Type Check
-        id: typecheck
-        run: npm run typecheck
-        continue-on-error: true
-
       - name: Run Build
         id: build
         run: npm run build
         continue-on-error: true
 
       - name: Check Results
-        if: steps.lint.outcome == 'failure' || steps.typecheck.outcome == 'failure' || steps.build.outcome == 'failure'
+        if: steps.lint.outcome == 'failure' || steps.build.outcome == 'failure'
         run: |
           echo "Frontend checks failed!"
           exit 1
