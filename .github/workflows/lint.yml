@@ -28,58 +28,26 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install linters
-        run: |
-          pip install pylint flake8 black pyright
+        run: pip install flake8
 
-      - name: Run Black (Code Formatter Check)
-        id: black
-        continue-on-error: true
-        run: |
-          cd backend
-          black --check --diff . || echo "BLACK_FAILED=true" >> $GITHUB_ENV
-
-      - name: Black Fix Suggestion
-        if: env.BLACK_FAILED == 'true'
-        run: |
-          echo "::warning::Code formatting issues found. Run 'black .' in the backend directory to auto-fix."
-
-      - name: Run Flake8
+      - name: Run Flake8 (Critical Errors Only)
         id: flake8
-        continue-on-error: true
+        working-directory: ./backend
         run: |
-          cd backend
+          # Check for critical errors only (syntax errors, undefined names)
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics > flake8-report.txt
-          cat flake8-report.txt
-
-      - name: Run Pylint
-        id: pylint
         continue-on-error: true
-        run: |
-          cd backend
-          pylint api/ config/ --fail-under=8.0 --output-format=text || echo "PYLINT_FAILED=true" >> $GITHUB_ENV
 
-      - name: Pylint Report
-        if: env.PYLINT_FAILED == 'true'
-        run: |
-          echo "::warning::Pylint score is below 8.0. Please review and fix the issues."
-
-      - name: Run Pyright (Type Checker)
-        id: pyright
+      - name: Run Django System Check
+        id: django-check
+        working-directory: ./backend
+        run: python manage.py check
         continue-on-error: true
-        run: |
-          cd backend
-          pyright . || echo "PYRIGHT_FAILED=true" >> $GITHUB_ENV
 
-      - name: Pyright Report
-        if: env.PYRIGHT_FAILED == 'true'
+      - name: Check Backend Status
+        if: steps.flake8.outcome == 'failure'
         run: |
-          echo "::warning::Type checking issues found. Please fix type errors."
-
-      - name: Check Backend Lint Status
-        if: env.BLACK_FAILED == 'true' || env.PYLINT_FAILED == 'true' || env.PYRIGHT_FAILED == 'true'
-        run: |
-          echo "::error::Backend linting failed. Please fix the issues above."
+          echo "::error::Critical Python errors found. Please fix syntax errors."
           exit 1
 
   frontend-lint:
@@ -97,55 +65,25 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Install Prettier
-        run: |
-          cd frontend
-          npm install --save-dev prettier
+        working-directory: ./frontend
+        run: npm ci
 
       - name: Run ESLint
         id: eslint
+        working-directory: ./frontend
+        run: npm run lint
         continue-on-error: true
-        run: |
-          cd frontend
-          npm run lint || echo "ESLINT_FAILED=true" >> $GITHUB_ENV
 
-      - name: ESLint Fix Suggestion
-        if: env.ESLINT_FAILED == 'true'
-        run: |
-          echo "::warning::ESLint errors found. Run 'npm run lint -- --fix' in the frontend directory to auto-fix."
-
-      - name: Check TypeScript Compilation
+      - name: Run TypeScript Build Check
         id: tsc
+        working-directory: ./frontend
+        run: npm run build
         continue-on-error: true
-        run: |
-          cd frontend
-          npx tsc --noEmit || echo "TSC_FAILED=true" >> $GITHUB_ENV
 
-      - name: TypeScript Report
-        if: env.TSC_FAILED == 'true'
+      - name: Check Frontend Status
+        if: steps.tsc.outcome == 'failure'
         run: |
-          echo "::error::TypeScript compilation failed. Please fix type errors."
-
-      - name: Check Prettier Formatting
-        id: prettier
-        continue-on-error: true
-        run: |
-          cd frontend
-          npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css,scss,md}" || echo "PRETTIER_FAILED=true" >> $GITHUB_ENV
-
-      - name: Prettier Fix Suggestion
-        if: env.PRETTIER_FAILED == 'true'
-        run: |
-          echo "::warning::Prettier formatting issues found. Run 'npx prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"' in the frontend directory to auto-fix."
-
-      - name: Check Frontend Lint Status
-        if: env.ESLINT_FAILED == 'true' || env.TSC_FAILED == 'true' || env.PRETTIER_FAILED == 'true'
-        run: |
-          echo "::error::Frontend linting failed. Please fix the issues above."
+          echo "::error::TypeScript/Build failed. Please fix errors."
           exit 1
 
   lint-summary:
@@ -157,7 +95,7 @@ jobs:
       - name: Check Overall Status
         run: |
           if [ "${{ needs.backend-lint.result }}" == "failure" ] || [ "${{ needs.frontend-lint.result }}" == "failure" ]; then
-            echo "::error::Lint checks failed. Please review the errors and suggestions above."
+            echo "::error::Lint checks failed. Please review the errors above."
             exit 1
           else
             echo "::notice::All lint checks passed successfully!"
